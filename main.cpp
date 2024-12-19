@@ -12,6 +12,8 @@ int main(int argc, char** argv)
 	Framebuffer framebuffer(window.size());
 	Framebuffer editor(window.size());
 
+
+
 	ed::Config config;
 	config.SettingsFile = "Test.json";
 	auto context = ed::CreateEditor(&config);

@@ -14,6 +14,7 @@
 #include <imgui/ImGuizmo.h>
 #include <imgui/GraphEditor.h>
 
+#include <imNodeEditor/imgui_node_editor.h>
 
 
 

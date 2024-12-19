@@ -10,6 +10,8 @@
 #include <imgui/imgui_impl_sdl2.h>
 #include <imgui/imgui_impl_opengl3.h>
 
+
+
 static void message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const* message, void const* user_param)
 {
 	if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
@@ -62,10 +64,13 @@ public:
 	SDL_GLContext& getContext() { return glContext; }
 	glm::vec2 size() { return glm::vec2(width, height); }
 
+	ImGuiContext* imContext = nullptr;
+
 private:
 
 	SDL_Window* window = nullptr;
 	SDL_GLContext glContext = {};
+	
 	int width = 800;
 	int height = 640;
 	

@@ -16,6 +16,9 @@
     <Filter Include="Source Files\ImGui">
       <UniqueIdentifier>{ad9c9d3c-7c8a-4d0b-8df9-95fa38011597}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\thedmd node editor">
+      <UniqueIdentifier>{f82651c4-e4a7-4771-ad82-fd4ba1ce42e5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -56,6 +59,18 @@
     </ClCompile>
     <ClCompile Include="NodeEditor.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdParty\include\imNodeEditor\crude_json.cpp">
+      <Filter>Source Files\thedmd node editor</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdParty\include\imNodeEditor\imgui_canvas.cpp">
+      <Filter>Source Files\thedmd node editor</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdParty\include\imNodeEditor\imgui_node_editor.cpp">
+      <Filter>Source Files\thedmd node editor</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdParty\include\imNodeEditor\imgui_node_editor_api.cpp">
+      <Filter>Source Files\thedmd node editor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

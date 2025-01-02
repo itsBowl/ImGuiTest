@@ -673,10 +673,10 @@ void ed::Node::Draw(ImDrawList* drawList, DrawFlags flags)
 
 # if 0
         // #debug: highlight group regions
-        auto drawRect = [drawList](const ImRect& rect, ImU32 color)
+        auto drawRect = [drawList](const ImRect& rect, ImU32 colou)
         {
             if (ImRect_IsEmpty(rect)) return;
-            drawList->AddRectFilled(rect.Min, rect.Max, color);
+            drawList->AddRectFilled(rect.Min, rect.Max, colou);
         };
 
         drawRect(GetRegionBounds(NodeRegion::Top), IM_COL32(255, 0, 0, 64));

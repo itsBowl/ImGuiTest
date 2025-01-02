@@ -1335,7 +1335,7 @@ GLAPI void APIENTRY glVertexAttribI4sv (GLuint index, const GLshort *v);
 GLAPI void APIENTRY glVertexAttribI4ubv (GLuint index, const GLubyte *v);
 GLAPI void APIENTRY glVertexAttribI4usv (GLuint index, const GLushort *v);
 GLAPI void APIENTRY glGetUniformuiv (GLuint program, GLint location, GLuint *params);
-GLAPI void APIENTRY glBindFragDataLocation (GLuint program, GLuint color, const GLchar *name);
+GLAPI void APIENTRY glBindFragDataLocation (GLuint program, GLuint colou, const GLchar *name);
 GLAPI GLint APIENTRY glGetFragDataLocation (GLuint program, const GLchar *name);
 GLAPI void APIENTRY glUniform1ui (GLint location, GLuint v0);
 GLAPI void APIENTRY glUniform2ui (GLint location, GLuint v0, GLuint v1);
@@ -5109,7 +5109,7 @@ GLAPI void APIENTRY glSignalVkFenceNV (GLuint64 vkFence);
 #define GL_FRAGMENT_COVERAGE_COLOR_NV     0x92DE
 typedef void (APIENTRYP PFNGLFRAGMENTCOVERAGECOLORNVPROC) (GLuint color);
 #ifdef GL_GLEXT_PROTOTYPES
-GLAPI void APIENTRY glFragmentCoverageColorNV (GLuint color);
+GLAPI void APIENTRY glFragmentCoverageColorNV (GLuint colou);
 #endif
 #endif /* GL_NV_fragment_coverage_to_color */
 

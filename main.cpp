@@ -11,7 +11,7 @@ int main(int argc, char** argv)
 	Window window;
 	Framebuffer framebuffer(window.size());
 	Framebuffer editor(window.size());
-
+	NodeEditor nodeEditor;
 
 
 	ed::Config config;
@@ -67,48 +67,8 @@ int main(int argc, char** argv)
 
 		ImGui::Separator();
 
-		ed::SetCurrentEditor(context);
-		ed::Begin("My Editor", ImVec2(0.0, 0.0f));
-		int uniqueId = 1;
-		// Start drawing nodes.
-		ed::BeginNode(uniqueId++);
-		ImGui::Text("Node A");
-		ed::BeginPin(uniqueId++, ed::PinKind::Input);
-		ImGui::Text("-> In");
-		ed::EndPin();
-		ImGui::SameLine();
-		ed::BeginPin(uniqueId++, ed::PinKind::Output);
-		ImGui::Text("Out ->");
-		ed::EndPin();
-		ed::EndNode();
-
-		ed::BeginNode(uniqueId++);
-		ImGui::Text("Node A");
-		ed::BeginPin(uniqueId++, ed::PinKind::Input);
-		ImGui::Text("-> In");
-		ed::EndPin();
-		ImGui::SameLine();
-		ed::BeginPin(uniqueId++, ed::PinKind::Output);
-		ImGui::Text("Out ->");
-		ed::EndPin();
-		ed::EndNode();
-
-
-
-		ed::End();
-		ed::SetCurrentEditor(nullptr);
-
-		//ImGui::ShowMetricsWindow();
-	
-
-		ed::EditorContext* m_Context = nullptr;
-
-		//ImGui::End();
-
-		
-		//Do editor stuff with imguizmo
-
-		
+		nodeEditor.DoEditor(context);
+				
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -120,5 +80,6 @@ int main(int argc, char** argv)
 
 	} while (!close);
 
+	ed::DestroyEditor(context);
 	return 0;
 }

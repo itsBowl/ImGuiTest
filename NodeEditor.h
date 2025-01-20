@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
+#include <utility>
+
+#include "ImGuiExtention.h"
 #include <imNodeEditor/imgui_node_editor.h>
 
 
@@ -69,11 +73,9 @@ struct Node
 	std::string state;
 	std::string saveState;
 
-	Node(int id, const char* name, ImColor colour = ImColor(255, 255, 255)):
-		id(id), name(name), colour(colour), type(NodeType::Simple), size(0, 0)
-	{
-
-	}
+	Node(int id, const char* name, ImColor colour = ImColor(255, 255, 255)) :
+		id(id), name(name), colour(colour), type(NodeType::Simple), size(0, 0) 
+	{}
 };
 
 struct Link
@@ -121,11 +123,13 @@ class NodeEditor
 {
 public:
 
-	NodeEditor() {}
+	NodeEditor();
+	NodeEditor(ed::EditorContext* ctx) : ctx(ctx) {};
 
 	void DoEditor(ed::EditorContext*);
+	void DoEditor();
 
-	int getNextID() { nextID++; }
+	int getNextID() { return nextID++; }
 	ed::LinkId getNextLinkID() { return ed::LinkId(getNextID()); }
 	void touchNode(ed::NodeId id) { nodeTouchTime[id] = touchTime; }
 	void buildNodes() { for (auto& node : nodes) buildNode(&node); }
@@ -138,9 +142,36 @@ public:
 	bool isPinLinked(ed::PinId);
 	bool canCreateLink(Pin*, Pin*);
 	void buildNode(Node*);
+	void setup();
+	ImColor getIconColour(PinType);
+	void drawPinIcon(const Pin&, bool, int);
+	void showStypeEditor(bool* show = nullptr); //unsure if need this
+	void showLeftPane(float);
 	
 
 
+	Node* spawnMathNode()
+	{
+		nodes.emplace_back(getNextID(), "float math", ImColor(32, 32, 255));
+		nodes.back().type = NodeType::Simple;
+		nodes.back().inputs.emplace_back(getNextID(), "", PinType::Float);
+		nodes.back().inputs.emplace_back(getNextID(), "", PinType::Float);
+		nodes.back().outputs.emplace_back(getNextID(), "", PinType::Float);
+		buildNode(&nodes.back());
+		return &nodes.back();
+	}
+
+	Node* spawnComment()
+	{
+		nodes.emplace_back(getNextID(), "Test Comment");
+		nodes.back().type = NodeType::Comment;
+		nodes.back().size = ImVec2(300, 200);
+
+		return &nodes.back();
+	}
+	
+
+	ed::EditorContext* ctx;
 	ImVector<LinkInfo> Imlinks;
 	bool firstFrame = true;
 	int nextLinkID = 100;

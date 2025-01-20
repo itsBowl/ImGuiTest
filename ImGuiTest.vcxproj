@@ -159,12 +159,14 @@
     <ClCompile Include="3rdParty\include\imNodeEditor\imgui_node_editor.cpp" />
     <ClCompile Include="3rdParty\include\imNodeEditor\imgui_node_editor_api.cpp" />
     <ClCompile Include="Framebuffer.cpp" />
+    <ClCompile Include="ImGuiExtention.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="NodeEditor.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Framebuffer.h" />
+    <ClInclude Include="ImGuiExtention.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="NodeEditor.h" />
     <ClInclude Include="Window.h" />

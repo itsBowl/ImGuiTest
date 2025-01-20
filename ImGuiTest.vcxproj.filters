@@ -72,6 +72,9 @@
     <ClCompile Include="3rdParty\include\imNodeEditor\imgui_node_editor_api.cpp">
       <Filter>Source Files\thedmd node editor</Filter>
     </ClCompile>
+    <ClCompile Include="ImGuiExtention.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Window.h">
@@ -84,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NodeEditor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGuiExtention.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

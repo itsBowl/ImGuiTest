@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 
 		ImGui::Separator();
 
-		nodeEditor.DoEditor(context);
+		nodeEditor.DoEditor();
 				
 
 		ImGui::Render();

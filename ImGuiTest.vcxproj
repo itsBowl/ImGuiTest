@@ -152,6 +152,7 @@
     <ClCompile Include="3rdParty\include\imgui\imgui_draw.cpp" />
     <ClCompile Include="3rdParty\include\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="3rdParty\include\imgui\imgui_impl_sdl2.cpp" />
+    <ClCompile Include="3rdParty\include\imgui\imgui_stacklayout.cpp" />
     <ClCompile Include="3rdParty\include\imgui\imgui_tables.cpp" />
     <ClCompile Include="3rdParty\include\imgui\imgui_widgets.cpp" />
     <ClCompile Include="3rdParty\include\imNodeEditor\crude_json.cpp" />
@@ -162,6 +163,7 @@
     <ClCompile Include="ImGuiExtention.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="NodeEditor.cpp" />
+    <ClCompile Include="Utils\builders.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -169,6 +171,7 @@
     <ClInclude Include="ImGuiExtention.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="NodeEditor.h" />
+    <ClInclude Include="Utils\builders.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>

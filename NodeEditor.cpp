@@ -1,4 +1,10 @@
 #include "NodeEditor.h"
+#include <imgui/imconfig.h>
+
+
+namespace util = ax::NodeEditor::Utilities;
+
+
 
 NodeEditor::NodeEditor()
 {
@@ -372,10 +378,10 @@ void NodeEditor::showLeftPane(float width)
 	int linkCount = ed::GetSelectedLinks(selectedLinks.data(), static_cast<int>(selectedLinks.size()));
 
 	//icons
-	int saveIconW = ImGui::ImGui_GetTextureWidth(saveIcon);
-	int saveIconH = ImGui::ImGui_GetTextureHeight(saveIcon);
-	int restoreIconW = ImGui::ImGui_GetTextureWidth(restoreIcon);
-	int restoreIconH = ImGui::ImGui_GetTextureHeight(restoreIcon);
+	int saveIconW = ImGui::getTextureWidth(saveIcon);
+	int saveIconH = ImGui::getTextureHeight(saveIcon);
+	int restoreIconW = ImGui::getTextureWidth(restoreIcon);
+	int restoreIconH = ImGui::getTextureHeight(restoreIcon);
 
 	ImGui::GetWindowDrawList()->AddRectFilled(
 		ImGui::GetCursorScreenPos(),
@@ -546,6 +552,188 @@ void NodeEditor::showLeftPane(float width)
 	if (ed::HasSelectionChanged) ++changeCount;
 
 	ImGui::EndChild();
+}
+
+void NodeEditor::onFrame(float dt)
+{
+	updateTouch();
+
+	auto& io = ImGui::GetIO();
+
+	ImGui::Text("FPS: %.2f (%.2gms)", io.Framerate, io.Framerate ? 1000.0f / io.Framerate : 0.0f);
+
+	ed::SetCurrentEditor(ctx);
+
+#if 0
+	{
+		for (auto x = io.DisplaySize.y; x < io.DisplaySize.x; x += 10.0f)
+		{
+			ImGui::GetWindowDrawList()->AddLine(ImVec2(x, 0), ImVec2(x + io.DisplaySize.y, io.DisplaySize.y),
+				IM_COL32(255, 255, 0, 255));
+		}
+	}
+#endif
+
+	static ed::NodeId contextNodeID = 0;
+	static ed::LinkId contextLinkID = 0;
+	static ed::PinId contextPinID = 0;
+
+	static bool createNewNode = false;
+	static Pin* newNodeLinkPin = nullptr;
+	static Pin* newLinkPin = nullptr;
+
+	static float leftPaneWidth = 400.0f;
+	static float rightPaneWidth = 800.0f;
+	Splitter(true, 4.0f, &leftPaneWidth, &rightPaneWidth, 50.0f, 50.0f);
+
+	showLeftPane(leftPaneWidth = 4.0f);
+
+	ImGui::SameLine(0.0f, 12.0f);
+
+	ed::Begin("Node Editor");
+	{
+		auto cursorTopLeft = ImGui::GetCursorScreenPos();
+
+		util::BlueprintNodeBuilder builder(headerBackground, ImGui::getTextureWidth(headerBackground), ImGui::getTextureHeight(headerBackground));
+
+		for (auto& node : nodes)
+		{
+			if (node.type != NodeType::Simple) continue;
+
+			const auto isSimple = node.type == NodeType::Simple;
+
+			bool hasOutputDelegates = false;
+			for (auto& output : node.outputs)
+			{
+				if (output.type == PinType::Del)
+				{
+					hasOutputDelegates = true;
+				}
+			}
+			
+			builder.Begin(node.id);
+
+			if (!isSimple)
+			{
+				builder.Header(node.colour);
+				ImGui::Spring(0);
+				ImGui::TextUnformatted(node.name.c_str());
+				ImGui::Spring(1);
+				ImGui::Dummy(ImVec2(0, 0));
+				if (hasOutputDelegates)
+				{
+					ImGui::BeginVertical("delegates", ImVec2(0, 28));
+					ImGui::Spring(1, 0);
+					for (auto& output : node.outputs)
+					{
+						if (output.type != PinType::Del) continue;
+
+						auto alpha = ImGui::GetStyle().Alpha;
+						if (newLinkPin && !canCreateLink(newLinkPin, &output) && &output != newLinkPin) alpha = alpha * (48.0f / 255.0f);
+
+						ed::BeginPin(output.id, ed::PinKind::Output);
+						ed::PinPivotAlignment(ImVec2(1.0f, 0.5f));
+						ed::PinPivotSize(ImVec2(0, 0));
+						ImGui::BeginHorizontal(output.id.AsPointer());
+						ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+
+						if (!output.name.empty())
+						{
+							ImGui::TextUnformatted(output.name.c_str());
+							ImGui::Spring(0);
+						}
+
+						drawPinIcon(output, isPinLinked(output.id), (int)(alpha * 255));
+						ImGui::Spring(0, ImGui::GetStyle().ItemSpacing.x / 2);
+						ImGui::EndHorizontal();
+						ImGui::PopStyleVar();
+						ed::EndPin();
+					}
+
+					ImGui::Spring(1, 0);
+					ImGui::EndVertical();
+					ImGui::Spring(0, ImGui::GetStyle().ItemSpacing.x / 2);
+				}
+				else ImGui::Spring(0);
+			}
+
+			for (auto& input : node.inputs)
+			{
+				auto alpha = ImGui::GetStyle().Alpha;
+
+				if (newLinkPin && !canCreateLink(newLinkPin, &input) && &input != newLinkPin) alpha = alpha * (44.0f / 255.0f);
+
+				builder.Input(input.id);
+				ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+				drawPinIcon(input, isPinLinked(input.id), (int)(alpha * 255));
+				ImGui::Spring(0);
+				if (!input.name.empty())
+				{
+					ImGui::TextUnformatted(input.name.c_str());
+					ImGui::Spring(0);
+				}
+				if (input.type == PinType::Bool)
+				{
+					ImGui::Button("BUTTON TEXT AT LN 675");
+					ImGui::Spring(0);
+				}
+				ImGui::PopStyleVar();
+				builder.EndInput();
+			}
+
+			if (isSimple)
+			{
+				builder.Middle();
+
+				ImGui::Spring(1, 0);
+				ImGui::TextUnformatted(node.name.c_str());
+				ImGui::Spring(1, 0);
+			}
+
+			for (auto& output : node.outputs)
+			{
+				if (!isSimple && output.type == PinType::Del) continue;
+
+				auto alpha = ImGui::GetStyle().Alpha;
+
+				if (newLinkPin && !canCreateLink(newLinkPin, &output) && &output != newLinkPin) alpha = alpha * (48.0f / 255.0f);
+
+				ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+				builder.Output(output.id);
+				if (output.type == PinType::String)
+				{
+					static char buffer[128] = "EditMeOn\nLine705!";
+					static bool wasActive = false;
+					
+					ImGui::PushItemWidth(100.0f);
+					ImGui::InputText("##edit", buffer, 127);
+					ImGui::PopItemWidth();
+					if (ImGui::IsItemActivated() && !wasActive)
+					{
+						ed::EnableShortcuts(false);
+						wasActive = true;
+					}
+					else if (!ImGui::IsItemActive() && wasActive)
+					{
+						ed::EnableShortcuts(true);
+						wasActive == false;
+					}
+					ImGui::Spring(0);
+				}
+				if (!output.name.empty())
+				{
+					ImGui::Spring(0);
+					ImGui::TextUnformatted(output.name.c_str());
+				}
+			}
+		
+		}
+
+		
+
+	}
+
+
 }
 
 

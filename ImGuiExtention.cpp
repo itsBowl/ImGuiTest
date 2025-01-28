@@ -15,7 +15,7 @@ namespace ImGui
         ImVector<unsigned char>     Data;
     };
 
-	int ImGui_GetTextureWidth(ImTextureID texture)
+	int getTextureWidth(ImTextureID texture)
     {
         if (TEXTURE* tex = (TEXTURE*)(texture))
             return tex->Width;
@@ -23,7 +23,7 @@ namespace ImGui
             return 0;
     }
 
-    int ImGui_GetTextureHeight(ImTextureID texture)
+    int getTextureHeight(ImTextureID texture)
     {
         if (TEXTURE* tex = (TEXTURE*)(texture))
             return tex->Height;

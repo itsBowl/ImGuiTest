@@ -16,6 +16,8 @@ namespace ImGui
         ImVector<unsigned char>     Data;
     };
 
-    int ImGui_GetTextureWidth(ImTextureID);
-    int ImGui_GetTextureHeight(ImTextureID);
+    int getTextureWidth(ImTextureID);
+    int getTextureHeight(ImTextureID);
+
+
 }

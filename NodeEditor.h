@@ -8,6 +8,9 @@
 
 #include "ImGuiExtention.h"
 #include <imNodeEditor/imgui_node_editor.h>
+#include <imgui/imgui_internal.h>
+
+#include "Utils/builders.h"
 
 
 namespace ed = ax::NodeEditor;
@@ -103,11 +106,11 @@ struct NodeIDLess
 };
 
 static bool Splitter(bool v, float t, float* s1, float* s2, 
-	float mS1, float Ms2, float sLAS)
+	float mS1, float mS2, float sLAS = -1.0f)
 {
 	//THIS IS CAUSING WEIRD ERRORS SO IT'S IN COMMENTS FOR NOW
 
-	/*
+	
 	using namespace ImGui;
 	ImGuiContext& g = *GImGui;
 	ImGuiWindow* window = g.CurrentWindow;
@@ -116,7 +119,7 @@ static bool Splitter(bool v, float t, float* s1, float* s2,
 	bb.Min = window->DC.CursorPos + (v ? ImVec2(*s1, 0.0f) : ImVec2(0.0f, *s1));
 	bb.Max = bb.Min + CalcItemSize(v ? ImVec2(t, sLAS) : ImVec2(sLAS, t), 0.0f, 0.0f);
 	return SplitterBehavior(bb, id, v ? ImGuiAxis_X : ImGuiAxis_Y, s1, s2, mS1, mS2, 0.0f);
-	*/
+	
 }
 
 class NodeEditor
@@ -147,6 +150,7 @@ public:
 	void drawPinIcon(const Pin&, bool, int);
 	void showStypeEditor(bool* show = nullptr); //unsure if need this
 	void showLeftPane(float);
+	void onFrame(float);
 	
 
 

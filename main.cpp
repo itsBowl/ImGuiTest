@@ -39,6 +39,8 @@ int main(int argc, char** argv)
 				resized = true;
 			}
 			ImGui_ImplSDL2_ProcessEvent(&event);
+			
+			nodeEditor.onFrame(ImGui::GetIO().DeltaTime);
 
 		}
 		//render stage

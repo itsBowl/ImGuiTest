@@ -12,7 +12,15 @@ int main(int argc, char** argv)
 	Framebuffer framebuffer(window.size());
 	Framebuffer editor(window.size());
 	NodeEditor nodeEditor;
-
+	IMGUI_CHECKVERSION();
+	auto imGuiContext = ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         
+	ImGui::SetCurrentContext(imGuiContext);
+	ImGui_ImplSDL2_InitForOpenGL(window.getWindow(), window.getContext());
+	ImGui_ImplOpenGL3_Init();
 
 	ed::Config config;
 	config.SettingsFile = "Test.json";
@@ -40,7 +48,7 @@ int main(int argc, char** argv)
 			}
 			ImGui_ImplSDL2_ProcessEvent(&event);
 			
-			nodeEditor.onFrame(ImGui::GetIO().DeltaTime);
+			
 
 		}
 		//render stage

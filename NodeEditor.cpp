@@ -1,8 +1,12 @@
 #include "NodeEditor.h"
 #include <imgui/imconfig.h>
 
+#include "Utils/drawing.h"
+#include "Utils/widgets.h"
+
 
 namespace util = ax::NodeEditor::Utilities;
+using ax::Widgets::IconType;
 
 
 
@@ -155,6 +159,7 @@ void NodeEditor::DoEditor()
 	ed::SetCurrentEditor(ctx);
 	ed::Begin("My Editor", ImVec2(0.0, 0.0f));
 	if (firstFrame) { setup(); firstFrame = false; }
+	onFrame(ImGui::GetIO().DeltaTime);
 
 	ed::End();
 	ed::SetCurrentEditor(nullptr);
@@ -229,6 +234,28 @@ Pin* NodeEditor::findPin(ed::PinId id)
 	}
 	return nullptr;
 }
+
+void NodeEditor::drawPinIcon(const Pin& p, bool connected, int alpha)
+{
+	IconType iconType;
+	ImColor color = getIconColor(p.type);
+	color.Value.w = alpha / 255.0f;
+	switch (p.type)
+	{
+        //case PinType::Flow:     iconType = IconType::Flow;   break;
+		case PinType::Bool:     iconType = IconType::Circle; break;
+		case PinType::Int:      iconType = IconType::Circle; break;
+		case PinType::Float:    iconType = IconType::Circle; break;
+		case PinType::String:   iconType = IconType::Circle; break;
+		//case PinType::Object:   iconType = IconType::Circle; break;
+		//case PinType::Function: iconType = IconType::Circle; break;
+		//case PinType::Delegate: iconType = IconType::Square; break;
+		default:
+			return;
+	}
+
+	ax::Widgets::Icon(ImVec2(static_cast<float>(pinIconSize), static_cast<float>(pinIconSize)), iconType, connected, color, ImColor(32, 32, 32, alpha));
+};
 
 bool NodeEditor::isPinLinked(ed::PinId id)
 {
@@ -382,6 +409,10 @@ void NodeEditor::showLeftPane(float width)
 	int saveIconH = ImGui::getTextureHeight(saveIcon);
 	int restoreIconW = ImGui::getTextureWidth(restoreIcon);
 	int restoreIconH = ImGui::getTextureHeight(restoreIcon);
+
+	//temp while I get things working
+	saveIconW = saveIconH = restoreIconW = restoreIconH = 1;
+
 
 	ImGui::GetWindowDrawList()->AddRectFilled(
 		ImGui::GetCursorScreenPos(),

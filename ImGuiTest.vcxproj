@@ -71,11 +71,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)3rdParty/include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)3rdParty/include/SDL;$(ProjectDir)3rdParty/include;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)3rdParty/lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)3rdParty/include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)3rdParty/include/SDL;$(ProjectDir)3rdParty/include;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)3rdParty/lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -159,19 +159,23 @@
     <ClCompile Include="3rdParty\include\imNodeEditor\imgui_canvas.cpp" />
     <ClCompile Include="3rdParty\include\imNodeEditor\imgui_node_editor.cpp" />
     <ClCompile Include="3rdParty\include\imNodeEditor\imgui_node_editor_api.cpp" />
+    <ClCompile Include="Utils\Drawing.cpp" />
     <ClCompile Include="Framebuffer.cpp" />
     <ClCompile Include="ImGuiExtention.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="NodeEditor.cpp" />
     <ClCompile Include="Utils\builders.cpp" />
+    <ClCompile Include="Utils\widgets.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Utils\drawing.h" />
     <ClInclude Include="Framebuffer.h" />
     <ClInclude Include="ImGuiExtention.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="NodeEditor.h" />
     <ClInclude Include="Utils\builders.h" />
+    <ClInclude Include="Utils\widgets.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>

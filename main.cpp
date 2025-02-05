@@ -1,10 +1,13 @@
 #include "main.h"
 #include "Window.h"
 #include "Framebuffer.h"
+#define STB_IMAGE_IMPLEMENTATION
 #include "NodeEditor.h"
 
 namespace ed = ax::NodeEditor;
 
+
+void startEditor(NodeEditor*);
 
 int main(int argc, char** argv)
 {
@@ -22,6 +25,7 @@ int main(int argc, char** argv)
 	ImGui_ImplSDL2_InitForOpenGL(window.getWindow(), window.getContext());
 	ImGui_ImplOpenGL3_Init();
 
+	//old test code
 	ed::Config config;
 	config.SettingsFile = "Test.json";
 	auto context = ed::CreateEditor(&config);
@@ -77,7 +81,8 @@ int main(int argc, char** argv)
 
 		ImGui::Separator();
 
-		nodeEditor.DoEditor();
+		//nodeEditor.DoEditor();
+		nodeEditor.onFrame(io.DeltaTime);
 				
 
 		ImGui::Render();
@@ -92,4 +97,47 @@ int main(int argc, char** argv)
 
 	ed::DestroyEditor(context);
 	return 0;
+}
+
+void startEditor(NodeEditor* e)
+{
+	ed::Config cfg;
+
+	cfg.SettingsFile = "Settings.json";
+
+	cfg.UserPointer = e;
+
+	cfg.LoadNodeSettings = [](ed::NodeId nodeId, char* data, void* userPointer) -> size_t
+	{
+		auto self = static_cast<NodeEditor*>(userPointer);
+
+		auto node = self->findNode(nodeId);
+		if (!node)
+			return 0;
+
+		if (data != nullptr)
+			memcpy(data, node->state.data(), node->state.size());
+		return node->state.size();
+	};
+
+	cfg.SaveNodeSettings = [](ed::NodeId nodeId, const char* data, size_t size, ed::SaveReasonFlags reason, void* userPointer) -> bool
+	{
+		auto self = static_cast<NodeEditor*>(userPointer);
+
+		auto node = self->findNode(nodeId);
+		if (!node)
+			return false;
+
+		node->state.assign(data, size);
+
+		self->touchNode(nodeId);
+
+		return true;
+	};
+
+	e->ctx = ed::CreateEditor(&cfg);
+	ed::SetCurrentEditor(e->ctx);
+	e->setup();
+
+
 }

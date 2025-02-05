@@ -34,16 +34,26 @@ NodeEditor::NodeEditor()
 		self->touchNode(id);
 		return true;
 	};
+
+	setup();
+
+	headerBackground = loadTexture("data/BlueprintBackground.png");
+	saveIcon = loadTexture("data/ic_save_white_24dp.png");
+	restoreIcon = loadTexture("data/ic_restore_white_24dp.png");
 	ctx = ed::CreateEditor(&config);
 }
 
 void NodeEditor::setup()
 {
 	Node* node;
-	node = spawnMathNode(); ed::SetNodePosition(node->id, ImVec2(-252, 220));
-	node = spawnMathNode(); ed::SetNodePosition(node->id, ImVec2(-252, 200));
-	node = spawnMathNode(); ed::SetNodePosition(node->id, ImVec2(-252, 180));
-	node = spawnMathNode(); ed::SetNodePosition(node->id, ImVec2(-252, 160));
+	node = spawnMathNode(); 
+	ed::SetNodePosition(node->id, ImVec2(-252, 220));
+	node = spawnMathNode(); 
+	ed::SetNodePosition(node->id, ImVec2(-252, 200));
+	node = spawnMathNode(); 
+	ed::SetNodePosition(node->id, ImVec2(-252, 180));
+	node = spawnMathNode(); 
+	ed::SetNodePosition(node->id, ImVec2(-252, 160));
 
 	node = spawnComment(); ed::SetNodePosition(node->id, ImVec2(112, 576)); ed::SetGroupSize(node->id, ImVec2(284, 154));
 
@@ -153,10 +163,9 @@ void NodeEditor::DoEditor(ed::EditorContext* ctx)
 	//ed::SetCurrentEditor(nullptr);
 }
 
-
 void NodeEditor::DoEditor()
 {
-	ed::SetCurrentEditor(ctx);
+	//ed::SetCurrentEditor(ctx);
 	ed::Begin("My Editor", ImVec2(0.0, 0.0f));
 	if (firstFrame) { setup(); firstFrame = false; }
 	onFrame(ImGui::GetIO().DeltaTime);
@@ -405,13 +414,19 @@ void NodeEditor::showLeftPane(float width)
 	int linkCount = ed::GetSelectedLinks(selectedLinks.data(), static_cast<int>(selectedLinks.size()));
 
 	//icons
-	int saveIconW = ImGui::getTextureWidth(saveIcon);
-	int saveIconH = ImGui::getTextureHeight(saveIcon);
-	int restoreIconW = ImGui::getTextureWidth(restoreIcon);
-	int restoreIconH = ImGui::getTextureHeight(restoreIcon);
+	
+	int saveIconW;
+	int saveIconH;
+	int restoreIconW;
+	int restoreIconH;
+
+	//int saveIconW = ImGui::getTextureWidth(saveIcon);
+	//int saveIconH = ImGui::getTextureHeight(saveIcon);
+	//int restoreIconW = ImGui::getTextureWidth(restoreIcon);
+	//int restoreIconH = ImGui::getTextureHeight(restoreIcon);
 
 	//temp while I get things working
-	saveIconW = saveIconH = restoreIconW = restoreIconH = 1;
+	saveIconW = saveIconH = restoreIconW = restoreIconH = 24;
 
 
 	ImGui::GetWindowDrawList()->AddRectFilled(
@@ -425,6 +440,7 @@ void NodeEditor::showLeftPane(float width)
 	{
 		ImGui::PushID(node.id.AsPointer());
 		auto start = ImGui::GetCursorScreenPos();
+
 		if (const auto progress = getTouchProgress(node.id))
 		{
 			ImGui::GetWindowDrawList()->AddLine(
@@ -432,33 +448,25 @@ void NodeEditor::showLeftPane(float width)
 				start + ImVec2(-8, ImGui::GetTextLineHeight()),
 				IM_COL32(255, 0, 0, 255 - (int)(255 * progress)), 4.0f);
 		}
+
 		bool isSelected = std::find(selectedNodes.begin(), selectedNodes.end(), node.id) != selectedNodes.end();
-
-#if IMGUI_VERSION_NUM >= 18967
+# if IMGUI_VERSION_NUM >= 18967
 		ImGui::SetNextItemAllowOverlap();
-#endif
-
+# endif
 		if (ImGui::Selectable((node.name + "##" + std::to_string(reinterpret_cast<uintptr_t>(node.id.AsPointer()))).c_str(), &isSelected))
 		{
 			if (io.KeyCtrl)
 			{
 				if (isSelected)
-				{
 					ed::SelectNode(node.id, true);
-				}
 				else
-				{
 					ed::DeselectNode(node.id);
-				}
 			}
 			else
-			{
 				ed::SelectNode(node.id, false);
-			}
 
 			ed::NavigateToSelection();
 		}
-
 		if (ImGui::IsItemHovered() && !node.state.empty())
 			ImGui::SetTooltip("State: %s", node.state.c_str());
 
@@ -473,45 +481,35 @@ void NodeEditor::showLeftPane(float width)
 
 		auto drawList = ImGui::GetWindowDrawList();
 		ImGui::SetCursorScreenPos(iconPanelPos);
-
 # if IMGUI_VERSION_NUM < 18967
 		ImGui::SetItemAllowOverlap();
 # else
 		ImGui::SetNextItemAllowOverlap();
 # endif
-
 		if (node.saveState.empty())
 		{
-			if (ImGui::InvisibleButton("save", ImVec2((float)saveIconW, (float)(saveIconH))))
-			{
+			if (ImGui::InvisibleButton("save", ImVec2((float)saveIconW, (float)saveIconH)))
 				node.saveState = node.state;
 
-				if (ImGui::IsItemActive())
-					drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-						ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
-				else if (ImGui::IsItemHovered())
-					drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-						ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
-				else
-					drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-						ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
-			}
+			if (ImGui::IsItemActive())
+				drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
+			else if (ImGui::IsItemHovered())
+				drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
+			else
+				drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
 		}
 		else
 		{
 			ImGui::Dummy(ImVec2((float)saveIconW, (float)saveIconH));
-			drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-				ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
+			drawList->AddImage(saveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
 		}
 
 		ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
-
 # if IMGUI_VERSION_NUM < 18967
 		ImGui::SetItemAllowOverlap();
 # else
 		ImGui::SetNextItemAllowOverlap();
 # endif
-
 		if (!node.saveState.empty())
 		{
 			if (ImGui::InvisibleButton("restore", ImVec2((float)restoreIconW, (float)restoreIconH)))
@@ -522,50 +520,42 @@ void NodeEditor::showLeftPane(float width)
 			}
 
 			if (ImGui::IsItemActive())
-				drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-					ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
+				drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
 			else if (ImGui::IsItemHovered())
-				drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-					ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
+				drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
 			else
-				drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-					ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
+				drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
 		}
 		else
 		{
 			ImGui::Dummy(ImVec2((float)restoreIconW, (float)restoreIconH));
-			drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
-				ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
+			drawList->AddImage(restoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
 		}
 
 		ImGui::SameLine(0, 0);
-
 # if IMGUI_VERSION_NUM < 18967
 		ImGui::SetItemAllowOverlap();
 # endif
+		ImGui::Dummy(ImVec2(0, (float)restoreIconH));
 
-		ImGui::Dummy(ImVec2(0, float(restoreIconH)));
 		ImGui::PopID();
 	}
-
 	ImGui::Unindent();
 
 	static int changeCount = 0;
+
 	ImGui::GetWindowDrawList()->AddRectFilled(
 		ImGui::GetCursorScreenPos(),
 		ImGui::GetCursorScreenPos() + ImVec2(width, ImGui::GetTextLineHeight()),
 		ImColor(ImGui::GetStyle().Colors[ImGuiCol_HeaderActive]), ImGui::GetTextLineHeight() * 0.25f);
-
 	ImGui::Spacing(); ImGui::SameLine();
 	ImGui::TextUnformatted("Selection");
 
 	ImGui::BeginHorizontal("Selection Stats", ImVec2(width, 0));
-	ImGui::Text("Changed %d times", changeCount, changeCount > 1 ? "s" : "");
+	ImGui::Text("Changed %d time%s", changeCount, changeCount > 1 ? "s" : "");
 	ImGui::Spring();
 	if (ImGui::Button("Deselect All"))
-	{
 		ed::ClearSelection();
-	}
 	ImGui::EndHorizontal();
 	ImGui::Indent();
 	for (int i = 0; i < nodeCount; ++i) ImGui::Text("Node (%p)", selectedNodes[i].AsPointer());
@@ -573,14 +563,11 @@ void NodeEditor::showLeftPane(float width)
 	ImGui::Unindent();
 
 	if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Z)))
-	{
 		for (auto& link : links)
-		{
 			ed::Flow(link.id);
-		}
-	}
 
-	if (ed::HasSelectionChanged) ++changeCount;
+	if (ed::HasSelectionChanged())
+		++changeCount;
 
 	ImGui::EndChild();
 }
@@ -622,8 +609,8 @@ void NodeEditor::onFrame(float dt)
 	ed::Begin("Node Editor");
 	{
 		auto cursorTopLeft = ImGui::GetCursorScreenPos();
-
-		util::BlueprintNodeBuilder builder(headerBackground, ImGui::getTextureWidth(headerBackground), ImGui::getTextureHeight(headerBackground));
+		//64x64 dimentions of blueprint background texture
+		util::BlueprintNodeBuilder builder(headerBackground, 64, 64);
 
 		for (auto& node : nodes)
 		{
@@ -756,6 +743,8 @@ void NodeEditor::onFrame(float dt)
 				}
 				ImGui::Spring(0);
 				drawPinIcon(output, isPinLinked(output.id), (int)(alpha * 255));
+				ImGui::PopStyleVar();
+				builder.EndOutput();
 			}
 			builder.End();
 		}
@@ -1281,7 +1270,7 @@ void NodeEditor::onFrame(float dt)
 		ImGui::EndPopup();
 	}
 	else { createNewNode = false; }
-	ImGui::PopStyleVar();
+	//ImGui::PopStyleVar();
 	ed::Resume();
 #endif
 

@@ -6,9 +6,14 @@
 #include <algorithm>
 #include <utility>
 
+#include <GL/gl3w.h>
+
 #include "ImGuiExtention.h"
 #include <imNodeEditor/imgui_node_editor.h>
 #include <imgui/imgui_internal.h>
+
+
+#include <STB_Image/stb_image.h>
 
 #include "Utils/builders.h"
 
@@ -148,6 +153,8 @@ public:
 	void DoEditor(ed::EditorContext*);
 	void DoEditor();
 
+	
+
 	int getNextID() { return nextID++; }
 	ed::LinkId getNextLinkID() { return ed::LinkId(getNextID()); }
 	void touchNode(ed::NodeId id) { nodeTouchTime[id] = touchTime; }
@@ -205,6 +212,27 @@ public:
 		case PinType::Del: return ImColor(255, 48, 48);
 		}
 	};
+
+	ImTextureID loadTexture(const char* path)
+	{
+		int w = 0, h = 0, c = 0;
+		if (auto data = stbi_load(path, &w, &h, &c, 4))
+		{
+			GLuint texture;
+			glGenTextures(1, &texture);
+			glBindTexture(GL_TEXTURE_2D, texture);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+			
+			stbi_image_free(data);
+
+			return (ImTextureID)(intptr_t)texture;
+		}
+		return nullptr;
+	}
 
 	ed::EditorContext* ctx;
 	ImVector<LinkInfo> Imlinks;

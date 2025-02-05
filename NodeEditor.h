@@ -15,6 +15,7 @@
 
 namespace ed = ax::NodeEditor;
 
+/*
 struct LinkInfo
 {
 	ed::LinkId id;
@@ -222,3 +223,4 @@ public:
 	bool showOrdinals = false;
 };
 
+*/

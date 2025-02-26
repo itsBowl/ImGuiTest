@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\blueprints-example.cpp" />
+    <ClCompile Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\utilities\builders.cpp">
+      <Filter>utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\utilities\drawing.cpp">
+      <Filter>utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\utilities\widgets.cpp">
+      <Filter>utilities</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\utilities\builders.h">
+      <Filter>utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\utilities\drawing.h">
+      <Filter>utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\utilities\widgets.h">
+      <Filter>utilities</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\BlueprintBackground.png">
+      <Filter>data</Filter>
+    </Image>
+    <Image Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\ic_restore_white_24dp.png">
+      <Filter>data</Filter>
+    </Image>
+    <Image Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\ic_save_white_24dp.png">
+      <Filter>data</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\.vs" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\ALL_BUILD.vcxproj">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\ALL_BUILD.vcxproj.filters">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\CMakeCache.txt">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\CMakeFiles" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\ZERO_CHECK.vcxproj">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\ZERO_CHECK.vcxproj.filters">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\application" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\basic-interaction-example" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\bin" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\blueprints-example" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\canvas-example" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\cmake_install.cmake">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\data" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\external" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\imgui-node-editor.sln">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\simple-example" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\widgets-example" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\x64" />
+    <None Include="F:\Github\imgui-node-editor-master\examples\data\Cuprum-Bold.ttf">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\data\Cuprum-OFL.txt">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\data\Oswald-OFL.txt">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\data\Oswald-Regular.ttf">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\data\Play-OFL.txt">
+      <Filter>data</Filter>
+    </None>
+    <None Include="F:\Github\imgui-node-editor-master\examples\data\Play-Regular.ttf">
+      <Filter>data</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="F:\Github\imgui-node-editor-master\examples\blueprints-example\data\blueprints-example\Resource.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="data">
+      <UniqueIdentifier>{52E380C1-C97C-3FDC-B569-1CDAD6C13E3F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{8B2DFCF0-7AC3-3726-AE1E-653FD0DBFDD0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utilities">
+      <UniqueIdentifier>{109290C0-7530-3BA9-9D9C-E4F85CC3CBD4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

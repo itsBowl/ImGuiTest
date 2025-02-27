@@ -12,7 +12,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 list(APPEND CMAKE_MODULE_PATH ${IMGUI_NODE_EDITOR_ROOT_DIR}/misc/cmake-modules)
 
 # Node editor use C++14
-set(CMAKE_CXX_STANDARD            14)
+set(CMAKE_CXX_STANDARD            20)
 set(CMAKE_CXX_STANDARD_REQUIRED   YES)
 
 
@@ -36,7 +36,7 @@ macro(add_example_executable name)
 
     set(_Example_Type)
     if (WIN32)
-        set(_Example_Type WIN32)
+        #set(_Example_Type)
 
         set(ApplicationIcon ${IMGUI_NODE_EDITOR_ROOT_DIR}/examples/Application/Support/Icon.ico)
         file(TO_NATIVE_PATH "${ApplicationIcon}" ApplicationIcon)
@@ -69,7 +69,7 @@ macro(add_example_executable name)
 
     find_package(imgui REQUIRED)
     find_package(imgui_node_editor REQUIRED)
-    target_link_libraries(${name} PRIVATE imgui imgui_node_editor application)
+    target_link_libraries(${name} PRIVATE imgui imgui_node_editor application gl3w SDL2 SDL2main OpenGL::GL)
 
     set(_ExampleBinDir ${CMAKE_BINARY_DIR}/bin)
 
@@ -125,6 +125,23 @@ macro(add_example_executable name)
 
 endmacro()
 
+# this may break stuff
+find_package(OpenGL REQUIRED)
+
+set(SDL2_DIR "${IMGUI_NODE_EDITOR_ROOT_DIR}/external/SDL2")
+
+include_directories(${SDL2_DIR}/include)
+set(SDL2_LIB_DIR "${SDL2_DIR}/lib")
+link_directories(${SDL2_LIB_DIR}) 
+set(GL3W_DIR "${CMAKE_SOURCE_DIR}/external/gl3w")
+
+add_library(gl3w STATIC
+    ${GL3W_DIR}/src/gl3w.c
+)
+
+target_include_directories(gl3w PUBLIC ${GL3W_DIR}/include)
+
+# end of breaking stuff
 add_subdirectory(application)
 
 add_subdirectory(canvas-example)

@@ -15,6 +15,12 @@
 #include <iostream>
 #include <unordered_map>
 
+#include "Extentions.h"
+#include "Render.h"
+#include "Program.h"
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
+
 
 static inline ImRect ImGui_GetItemRect()
 {
@@ -112,7 +118,6 @@ struct Pin
     {
     }
 };
-
 
 struct Node
 {
@@ -302,24 +307,80 @@ struct Example:
         return nodeVar;
     }
 
+    std::string generateNodeCodeStr(Node& node, std::unordered_map<uint64_t, std::string>& names)
+    {
+        std::string code = "";
+        std::vector<std::string> inVars;
+
+        for (auto& p : node.Inputs)
+        {
+            Node* connected = findConnected(p.ID);
+            if (connected)
+            {
+                if (names.count(connected->ID.Get()) == 0)
+                {
+                    code += generateNodeCodeStr(*connected, names);
+                }
+
+                inVars.push_back(names[connected->ID.Get()]);
+            }
+        }
+        std::string nodeVar = "var" + std::to_string(node.ID.Get());
+        if (node.Type == NodeType::Output)
+        {
+            nodeVar = "fragColour ";
+        }
+        names[node.ID.Get()] = nodeVar;
+
+        switch (node.Type)
+        {
+        case NodeType::FloatConstant:
+            //since we know the value here is constant we can read it directly from the node and not worry about pin linking ;p
+            code = "float " + nodeVar + " = " + std::to_string(node.value.x) + ";\n";
+            break;
+        case NodeType::FloatAdd:
+            code += "float " + nodeVar + " = " + inVars[0] + " + " + inVars[1] + ";\n";
+            break;
+        case NodeType::FloatSubtract:
+            code += "float " + nodeVar + " = " + inVars[0] + " - " + inVars[1] + ";\n";
+            break;
+        case NodeType::FloatMultiply:
+            code += "float " + nodeVar + " = " + inVars[0] + " * " + inVars[1] + ";\n";
+            break;
+        case NodeType::FloatDivide:
+            code += "float " + nodeVar + " = " + inVars[0] + " / " + inVars[1] + ";\n";
+            break;
+        case NodeType::Combine:
+            code += "vec3 " + nodeVar + " = " + "vec3(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ");\n";
+            break;
+        case NodeType::Output:
+            code += nodeVar + " = " + inVars[0] + ";\n";
+        }
+
+        //generated[node.ID.Get()] = code;
+
+        return code;
+    }
+
     void buildShader()
     {
         shaderCode.clear();
         std::unordered_map<uint64_t, std::string> names;
         std::unordered_map<uint64_t, std::string> code;
-        shaderCode = "void main() {\n";
+        shaderCode = "#version 450\n\nlayout(location = 0) out vec4 fragColour;\n\nvoid main() {\n";
         for (auto n : m_Nodes)
         {
             if (n.Type == NodeType::Output)
             {
-                generateNodeCode(n, names, code);
+                shaderCode += generateNodeCodeStr(n, names);
+                //generateNodeCode(n, names, code);
             }
         }
 
-        for (const auto& e : code)
-        {
-            shaderCode += e.second;
-        }
+        //for (const auto& e : code)
+        //{
+        //    shaderCode += e.second;
+        //}
         shaderCode += "}\n";
     }
 
@@ -768,6 +829,15 @@ struct Example:
 
     void OnStart() override
     {
+
+        sdl_window = makeSDLWindow(sdl_width, sdl_height);
+        if (Render::init() != 0)
+        {
+            std::cout << "Failed to init window renderer\n";
+            __debugbreak();
+        }
+        
+
         ed::Config config;
 
         config.SettingsFile = "Blueprints.json";
@@ -805,36 +875,9 @@ struct Example:
         m_Editor = ed::CreateEditor(&config);
         ed::SetCurrentEditor(m_Editor);
 
-        //Node* node;
-        //node = SpawnInputActionNode();      ed::SetNodePosition(node->ID, ImVec2(-252, 220));
-        //node = SpawnBranchNode();           ed::SetNodePosition(node->ID, ImVec2(-300, 351));
-        //node = SpawnDoNNode();              ed::SetNodePosition(node->ID, ImVec2(-238, 504));
-        //node = SpawnOutputActionNode();     ed::SetNodePosition(node->ID, ImVec2(71, 80));
-        //node = SpawnSetTimerNode();         ed::SetNodePosition(node->ID, ImVec2(168, 316));
-        //
-        //node = SpawnTreeSequenceNode();     ed::SetNodePosition(node->ID, ImVec2(1028, 329));
-        //node = SpawnTreeTaskNode();         ed::SetNodePosition(node->ID, ImVec2(1204, 458));
-        //node = SpawnTreeTask2Node();        ed::SetNodePosition(node->ID, ImVec2(868, 538));
-        //
-        //node = SpawnComment();              ed::SetNodePosition(node->ID, ImVec2(112, 576)); ed::SetGroupSize(node->ID, ImVec2(384, 154));
-        //node = SpawnComment();              ed::SetNodePosition(node->ID, ImVec2(800, 224)); ed::SetGroupSize(node->ID, ImVec2(640, 400));
-        //
-        //node = SpawnLessNode();             ed::SetNodePosition(node->ID, ImVec2(366, 652));
-        //node = SpawnWeirdNode();            ed::SetNodePosition(node->ID, ImVec2(144, 652));
-        //node = SpawnMessageNode();          ed::SetNodePosition(node->ID, ImVec2(-348, 698));
-        //node = SpawnPrintStringNode();      ed::SetNodePosition(node->ID, ImVec2(-69, 652));
-        //
-        //node = SpawnHoudiniTransformNode(); ed::SetNodePosition(node->ID, ImVec2(500, -70));
-        //node = SpawnHoudiniGroupNode();     ed::SetNodePosition(node->ID, ImVec2(500, 42));
-
         ed::NavigateToContent();
 
         BuildNodes();
-
-        //m_Links.push_back(Link(GetNextLinkId(), m_Nodes[5].Outputs[0].ID, m_Nodes[6].Inputs[0].ID));
-        //m_Links.push_back(Link(GetNextLinkId(), m_Nodes[5].Outputs[0].ID, m_Nodes[7].Inputs[0].ID));
-        //
-        //m_Links.push_back(Link(GetNextLinkId(), m_Nodes[14].Outputs[0].ID, m_Nodes[15].Inputs[0].ID));
 
         m_HeaderBackground = LoadTexture("data/BlueprintBackground.png");
         m_SaveIcon         = LoadTexture("data/ic_save_white_24dp.png");
@@ -1001,7 +1044,26 @@ struct Example:
         }
         ImGui::Spring();
         if (ImGui::Button("Generate Shader"))
+        {
             buildShader();
+            std::cout << "compiling shader";
+            if (program_one.isActive) 
+            { 
+                if (program_two.updateShader(shaderCode))
+                {
+                    program_one.isActive = false;
+                    program_two.use();
+                }
+            }
+            else
+            {
+                if (program_one.updateShader(shaderCode))
+                {
+                    program_two.isActive = false;
+                    program_one.use();
+                }
+            }
+        }
         ImGui::Spring();
         if (ImGui::Button("Edit Style"))
             showStyleEditor = true;
@@ -1176,6 +1238,10 @@ struct Example:
 
     void OnFrame(float deltaTime) override
     {
+
+        glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
         UpdateTouch();
 
         auto& io = ImGui::GetIO();
@@ -1278,6 +1344,7 @@ struct Example:
                                 ImGui::Spring(0);
                         builder.EndHeader();
                     }
+                    //custom drawing for float constant nodes
                     if (node.Type == NodeType::FloatConstant)
                     {
                         ImGui::PushItemWidth(100);
@@ -2095,6 +2162,7 @@ struct Example:
         }
 
 
+        SDL_GL_SwapWindow(sdl_window);
         //ImGui::ShowTestWindow();
         //ImGui::ShowMetricsWindow();
     }
@@ -2109,6 +2177,13 @@ struct Example:
     const float          m_TouchTime = 1.0f;
     std::map<ed::NodeId, float, NodeIdLess> m_NodeTouchTime;
     bool                 m_ShowOrdinals = false;
+
+    //my stuff here for rendering
+    SDL_Window*          sdl_window;
+    int                  sdl_width = 640;
+    int                  sdl_height = 480;
+    Render::Program      program_one;
+    Render::Program      program_two;
 };
 
 int Main(int argc, char** argv)

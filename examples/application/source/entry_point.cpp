@@ -1,6 +1,8 @@
 # include "application.h"
 # include "platform.h"
+#include "SDL.h"
 
+#define _CONSOLE
 # if PLATFORM(WINDOWS)
 #     define NOMINMAX
 #     define WIN32_LEAN_AND_MEAN

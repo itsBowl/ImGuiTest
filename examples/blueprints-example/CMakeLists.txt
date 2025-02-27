@@ -1,5 +1,14 @@
 add_example_executable(blueprints-example
     blueprints-example.cpp
+    Extentions.h
+    Program.h
+    Program.cpp
+    Render.h
+    Render.cpp
+    FileManagement.h
+    glm/glm.hpp
+    glm/gtc/type_ptr.hpp
+    glm/gtx/transform.hpp
     utilities/builders.h
     utilities/drawing.h
     utilities/widgets.h

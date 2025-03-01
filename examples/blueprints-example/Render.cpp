@@ -53,7 +53,9 @@ namespace Render
 		//glEnable(GL_DEPTH_TEST);
 		//glDepthFunc(GL_LEQUAL);
 		//glCullFace(GL_BACK);
-
+#ifdef RENDER_TEST_DATA
+		testPopulate();
+#endif
 		//glFrontFace(GL_CCW);
 		return 0;
 	}
@@ -62,7 +64,7 @@ namespace Render
 
 	std::vector<GLuint> shaderID;
 
-#ifdef test
+#ifdef RENDER_TEST_DATA
 	int success;
 	char log[512];
 
@@ -71,6 +73,13 @@ namespace Render
 	 0.5f, -0.5f, 0.0f,  // bottom right
 	-0.5f, -0.5f, 0.0f,  // bottom left
 	-0.5f,  0.5f, 0.0f   // top left 
+	};
+
+	float triVerts[] =
+	{
+		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+		3.0f, -1.0f, 0.0f,  2.0f, 0.0f,
+		-1.0f, 3.0f, 0.0f, 0.0f, 2.0f
 	};
 
 	unsigned int indices[] = {  // note that we start from 0!
@@ -89,32 +98,38 @@ namespace Render
 		const char* vertexShaderSource =
 			"#version 450 core\n"
 			"layout (location = 0) in vec3 aPos;\n"
+			"layout (location = 1) in vec2 uvMap;\n"
+			"out vec2 vUV;\n"
 			"void main()\n"
 			"{\n"
 			"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+			"	vUV = uvMap;\n"
 			"}\0";
 
 		const char* fragShaderSource =
 			"#version 450 core\n"
+			"in vec2 vUV;\n"
 			"out vec4 FragColor;\n"
 
 			"void main()\n"
 			"{\n"
-			"FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+			"FragColor = vec4(vUV.x, vUV.y, 0.0f, 1.0f);\n"
 			"}\0";
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
 
 		glGenBuffers(1, &vbo);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(triVerts), triVerts, GL_STATIC_DRAW);
 
-		glGenBuffers(1, &ibo);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+		//glGenBuffers(1, &ibo);
+		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+		//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3* sizeof(float)));
 		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
 
 
 		vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -162,7 +177,7 @@ namespace Render
 	{
 		glUseProgram(program);
 		glBindVertexArray(vao);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 	}
 #endif
 }

@@ -18,6 +18,7 @@
 #include "Extentions.h"
 #include "Render.h"
 #include "Program.h"
+#include "Nodes.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
@@ -58,50 +59,7 @@ static ed::EditorContext* m_Editor = nullptr;
 //        return false;
 //}
 
-enum class PinType
-{
-    Flow,
-    Bool,
-    Int,
-    Float,
-    Vector,
-    String,
-    Object,
-    Function,
-    Delegate,
-};
 
-enum class PinKind
-{
-    Output,
-    Input
-};
-
-enum class NodeType
-{
-    //pre-existing
-    Blueprint,
-    Simple,
-    Tree,
-    Comment,
-    Houdini,
-    //float types
-    FloatConstant,
-    FloatAdd,
-    FloatSubtract,
-    FloatMultiply,
-    FloatDivide,
-    //triganomatry
-    Sin,
-    Cos,
-    Tan,
-    //Vector
-    Combine,
-    Split,
-
-    //Output
-    Output
-};
 
 struct Node;
 
@@ -321,8 +279,11 @@ struct Example:
                 {
                     code += generateNodeCodeStr(*connected, names);
                 }
-
                 inVars.push_back(names[connected->ID.Get()]);
+            }
+            else
+            {
+                inVars.push_back("0.0f");
             }
         }
         std::string nodeVar = "var" + std::to_string(node.ID.Get());
@@ -350,11 +311,25 @@ struct Example:
         case NodeType::FloatDivide:
             code += "float " + nodeVar + " = " + inVars[0] + " / " + inVars[1] + ";\n";
             break;
+        case NodeType::FloatPow:
+            code += "float " + nodeVar + " = pow(" + inVars[0] + ", " + inVars[1] + ");\n";
+        case NodeType::Sin:
+            code += "float " + nodeVar + " = sin(" + inVars[0] + ");\n";
+            break;
+        case NodeType::Cos:
+            code += "float " + nodeVar + " = sin(" + inVars[0] + ");\n";
+            break;
+        case NodeType::Tan:
+            code += "float " + nodeVar + " = tan(" + inVars[0] + ");\n";
+            break;
         case NodeType::Combine:
             code += "vec3 " + nodeVar + " = " + "vec3(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ");\n";
             break;
+        case NodeType::UV:
+            code += " uv;\n";
+            break;
         case NodeType::Output:
-            code += nodeVar + " = " + inVars[0] + ";\n";
+            code += nodeVar + " = " + inVars[1] + ";\n";
         }
 
         //generated[node.ID.Get()] = code;
@@ -367,7 +342,8 @@ struct Example:
         shaderCode.clear();
         std::unordered_map<uint64_t, std::string> names;
         std::unordered_map<uint64_t, std::string> code;
-        shaderCode = "#version 450\n\nlayout(location = 0) out vec4 fragColour;\n\nvoid main() {\n";
+        shaderCode = "#version 450\nin vec2 vUV;\nout vec4 fragColour;\n\nvoid main() {\n";
+
         for (auto n : m_Nodes)
         {
             if (n.Type == NodeType::Output)
@@ -747,6 +723,20 @@ struct Example:
         return &m_Nodes.back();
     }
 
+    Node* spawnFloatPowNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Power");
+        m_Nodes.back().Type = NodeType::FloatPow;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
     Node* spawnTestNode()
     {
         m_Nodes.emplace_back(GetNextId(), "StringTest");
@@ -789,6 +779,22 @@ struct Example:
 
             return &m_Nodes.back();
         }
+    }
+
+    Node* spawnUVNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "UV");
+        m_Nodes.back().Type = NodeType::UV;
+        m_Nodes.back().isShader = true;
+        //m_Nodes.back().Inputs.emplace_back(GetNextId(), "x", PinType::Float);
+        //m_Nodes.back().Inputs.emplace_back(GetNextId(), "y", PinType::Float);
+        //m_Nodes.back().Inputs.emplace_back(GetNextId(), "z", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "x", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "y", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
     }
 
     Node* makeNewNode()
@@ -2031,6 +2037,8 @@ struct Example:
             
             if (ImGui::MenuItem("Output"))
                 node = spawnOutputNode();
+            if (ImGui::MenuItem("Input UV"))
+                node = spawnUVNode();
             if (ImGui::BeginMenu("Float Maths"))
             {
                 if (ImGui::MenuItem("Constant"))
@@ -2160,7 +2168,9 @@ struct Example:
 
             drawList->PopClipRect();
         }
+        //we do all the rendering of the shader at the end of the program
 
+        Render::testRender();
 
         SDL_GL_SwapWindow(sdl_window);
         //ImGui::ShowTestWindow();

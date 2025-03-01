@@ -3,6 +3,7 @@
 
 #include <SDL.h>
 #include "Program.h"
+#include "Nodes.h"
 
 
 SDL_Window* makeSDLWindow(int width = 640, int height = 480)

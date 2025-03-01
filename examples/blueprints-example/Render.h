@@ -12,7 +12,7 @@
 // 
 //
 
-#define test
+#define RENDER_TEST_DATA
 
 namespace Render
 {
@@ -26,8 +26,8 @@ namespace Render
 	};
 
 	
-#ifdef test
-#pragma region TEST
+#ifdef RENDER_TEST_DATA
+#pragma region render_test_data
 
 	int testPopulate();
 	

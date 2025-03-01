@@ -5,6 +5,7 @@ add_example_executable(blueprints-example
     Program.cpp
     Render.h
     Render.cpp
+    Nodes.h
     FileManagement.h
     glm/glm.hpp
     glm/gtc/type_ptr.hpp

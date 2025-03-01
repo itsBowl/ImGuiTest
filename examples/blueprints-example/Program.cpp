@@ -28,17 +28,33 @@ namespace Render
 		std::vector<char> vertexCode, fragmentCode;
 		if (!FM::readFile(vertex, &vertexCode)) std::cout << "failed to read vertex file\n"; return;
 		if (!FM::readFile(fragment, &fragmentCode)) std::cout << "Failed to read fragment file\n"; return;
+
+		auto vertexShader = compileShader(GL_VERTEX_SHADER, vertexCode);
+		auto fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentCode);
+
+		glAttachShader(id, vertexShader);
+		glAttachShader(id, fragmentShader);
+		glLinkProgram(id);
+		if (!compileStatus(id))
+		{
+			std::cout << "failed to link shaders";
+			return;
+		}
+
+		glDeleteShader(vertexShader);
+		glDeleteShader(fragmentShader);
 	}
 
 	bool Program::updateShader(std::string newSrc)
 	{
-
+		if (!0)
 
 		return true;
 	}
 
 	bool Program::makeProgramFromString(const std::string& src)
 	{
+		// TODO: Write this function
 		return false;
 	}
 

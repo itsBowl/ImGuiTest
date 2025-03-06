@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "Program.h"
+
 //
 // Render Module expets objects as GameObject
 // A GameObject has at most, 32 textures (OpenGL limitation of 32 samplers)
@@ -31,7 +33,7 @@ namespace Render
 
 	int testPopulate();
 	
-	void testRender();
+	void testRender(Program* p = nullptr);
 	
 	
 #endif

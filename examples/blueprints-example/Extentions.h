@@ -16,6 +16,7 @@ SDL_Window* makeSDLWindow(int width = 640, int height = 480)
 
     auto window = SDL_CreateWindow("Output Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    //SDL_SetWindowAlwaysOnTop(window, SDL_TRUE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
     if (SDL_GL_CreateContext(window) == NULL)

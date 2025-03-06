@@ -48,6 +48,7 @@ namespace Render
 	int init()
 	{
 		if (gl3wInit() != GL3W_OK) return 1;
+		glEnable(GL_DEBUG_OUTPUT);
 		glDebugMessageCallback(message_callback, nullptr);
 		//glEnable(GL_CULL_FACE);
 		//glEnable(GL_DEPTH_TEST);
@@ -63,6 +64,8 @@ namespace Render
 	Render::Render(SDL_Window* window) : window(window) {}
 
 	std::vector<GLuint> shaderID;
+
+
 
 #ifdef RENDER_TEST_DATA
 	int success;
@@ -173,9 +176,14 @@ namespace Render
 		return 0;
 	}
 
-	void testRender()
+	void testRender(Program* p)
 	{
-		glUseProgram(program);
+		if (p)
+		{
+			glUseProgram(p->getID());
+		}
+		else { glUseProgram(program); }
+		
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 	}

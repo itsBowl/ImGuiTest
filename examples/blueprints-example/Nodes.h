@@ -7,6 +7,7 @@ enum class PinType
     Int,
     Float,
     Vector,
+    Vector4,
     String,
     Object,
     Function,

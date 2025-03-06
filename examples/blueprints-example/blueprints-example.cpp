@@ -81,6 +81,7 @@ struct Node
 {
     ed::NodeId ID;
     std::string Name;
+    std::string userDefinedName = "";
     std::vector<Pin> Inputs;
     std::vector<Pin> Outputs;
     ImColor Color;
@@ -265,7 +266,7 @@ struct Example:
         return nodeVar;
     }
 
-    std::string generateNodeCodeStr(Node& node, std::unordered_map<uint64_t, std::string>& names)
+    std::string generateNodeCodeStr(Node& node, std::unordered_map<uint64_t, std::string>& variableNames)
     {
         std::string code = "";
         std::vector<std::string> inVars;
@@ -275,29 +276,60 @@ struct Example:
             Node* connected = findConnected(p.ID);
             if (connected)
             {
-                if (names.count(connected->ID.Get()) == 0)
+                if (variableNames.count(connected->ID.Get()) == 0)
                 {
-                    code += generateNodeCodeStr(*connected, names);
+                    code += generateNodeCodeStr(*connected, variableNames);
                 }
-                inVars.push_back(names[connected->ID.Get()]);
+                if (connected->Type == NodeType::UV)
+                {
+                    for (auto& l : m_Links)
+                    {
+                        for (auto& o : connected->Outputs)
+                        {
+                            if (l.EndPinID == p.ID && l.StartPinID == o.ID)
+                            {
+                                if (o.Name == "x")
+                                {
+                                    inVars.push_back("vUV.x");
+                                }
+                                else if (o.Name == "y")
+                                {
+                                    inVars.push_back("vUV.y");
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    inVars.push_back(variableNames[connected->ID.Get()]);
+                }
             }
             else
             {
                 inVars.push_back("0.0f");
             }
         }
-        std::string nodeVar = "var" + std::to_string(node.ID.Get());
+        std::string nodeVar = "";
+        if (node.userDefinedName != "")
+        {
+            nodeVar = node.userDefinedName;
+        }
+        else
+        {
+            nodeVar = "var" + std::to_string(node.ID.Get());
+        }
         if (node.Type == NodeType::Output)
         {
             nodeVar = "fragColour ";
         }
-        names[node.ID.Get()] = nodeVar;
+        variableNames[node.ID.Get()] = nodeVar;
 
         switch (node.Type)
         {
         case NodeType::FloatConstant:
             //since we know the value here is constant we can read it directly from the node and not worry about pin linking ;p
-            code = "float " + nodeVar + " = " + std::to_string(node.value.x) + ";\n";
+            code = "float " + nodeVar + " = " + std::to_string(node.value.x) + "f;\n";
             break;
         case NodeType::FloatAdd:
             code += "float " + nodeVar + " = " + inVars[0] + " + " + inVars[1] + ";\n";
@@ -323,10 +355,12 @@ struct Example:
             code += "float " + nodeVar + " = tan(" + inVars[0] + ");\n";
             break;
         case NodeType::Combine:
-            code += "vec3 " + nodeVar + " = " + "vec3(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ");\n";
+            code += "vec4 " + nodeVar + " = " + "vec4(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ", " + inVars[3] + ");\n";
             break;
         case NodeType::UV:
-            code += " uv;\n";
+            //inVars.push_back("vUV.x");
+            //inVars.push_back("vUV.y");
+            
             break;
         case NodeType::Output:
             code += nodeVar + " = " + inVars[1] + ";\n";
@@ -342,7 +376,7 @@ struct Example:
         shaderCode.clear();
         std::unordered_map<uint64_t, std::string> names;
         std::unordered_map<uint64_t, std::string> code;
-        shaderCode = "#version 450\nin vec2 vUV;\nout vec4 fragColour;\n\nvoid main() {\n";
+        shaderCode = "#version 450 core\nin vec2 vUV;\nlayout (location = 0) out vec4 fragColour;\n\nvoid main() {\n";
 
         for (auto n : m_Nodes)
         {
@@ -758,7 +792,8 @@ struct Example:
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "x", PinType::Float);
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "y", PinType::Float);
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "z", PinType::Float);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "vec3", PinType::Vector);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "w", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "vec4", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
 
@@ -772,7 +807,7 @@ struct Example:
             m_Nodes.back().Type = NodeType::Output;
             m_Nodes.back().isShader = true;
             m_Nodes.back().Inputs.emplace_back(GetNextId(), "Float Output", PinType::Float);
-            m_Nodes.back().Inputs.emplace_back(GetNextId(), "Vector Output", PinType::Vector);
+            m_Nodes.back().Inputs.emplace_back(GetNextId(), "Vector Output", PinType::Vector4);
             //m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::String);
 
             BuildNode(&m_Nodes.back());
@@ -1052,7 +1087,7 @@ struct Example:
         if (ImGui::Button("Generate Shader"))
         {
             buildShader();
-            std::cout << "compiling shader";
+            std::cout << "compiling shader\n";
             if (program_one.isActive) 
             { 
                 if (program_two.updateShader(shaderCode))
@@ -1100,6 +1135,8 @@ struct Example:
             ImGui::GetCursorScreenPos() + ImVec2(paneWidth, ImGui::GetTextLineHeight()),
             ImColor(ImGui::GetStyle().Colors[ImGuiCol_HeaderActive]), ImGui::GetTextLineHeight() * 0.25f);
         ImGui::Spacing(); ImGui::SameLine();
+        if (0)
+        {
         ImGui::TextUnformatted("Nodes");
         ImGui::Indent();
         for (auto& node : m_Nodes)
@@ -1205,8 +1242,9 @@ struct Example:
             ImGui::Dummy(ImVec2(0, (float)restoreIconHeight));
 
             ImGui::PopID();
-        }
+            }
         ImGui::Unindent();
+        }
 
         static int changeCount = 0;
 
@@ -1237,7 +1275,7 @@ struct Example:
 
         // added code here
         ImGui::Text("Generated Shader Code");
-        ImGui::InputTextMultiline("##Shader Output", &shaderCode[0], shaderCode.size(), ImVec2(500, 200), ImGuiInputTextFlags_ReadOnly);
+        ImGui::InputTextMultiline("##Shader Output", &shaderCode[0], shaderCode.size(), ImVec2(500, 500), ImGuiInputTextFlags_ReadOnly);
         //to here
         ImGui::EndChild();
     }
@@ -1308,7 +1346,15 @@ struct Example:
                     {
                         builder.Header(node.Color);
                             ImGui::Spring(0);
-                            ImGui::TextUnformatted(node.Name.c_str());
+                            if (node.userDefinedName != "")
+                            {
+                                ImGui::TextUnformatted(node.userDefinedName.c_str());
+                            }
+                            else
+                            {
+                                ImGui::TextUnformatted(node.Name.c_str());
+                            }
+                            
                             ImGui::Spring(1);
                             ImGui::Dummy(ImVec2(0, 28));
                             if (hasOutputDelegates)
@@ -1354,7 +1400,7 @@ struct Example:
                     if (node.Type == NodeType::FloatConstant)
                     {
                         ImGui::PushItemWidth(100);
-                        ImGui::InputFloat(("##FloatValue" + std::to_string(node.ID.Get())).c_str(), &node.value.x);
+                        ImGui::DragFloat(("##FloatValue" + std::to_string(node.ID.Get())).c_str(), &node.value.x, 0.1f, 0.0f, 1.0f);
                         ImGui::PopItemWidth();
                     }
                     for (auto& input : node.Inputs)
@@ -1971,6 +2017,12 @@ struct Example:
             ImGui::Separator();
             if (node)
             {
+                char buffer[128];
+                strncpy_s(buffer, node->userDefinedName.c_str(), sizeof(buffer));
+                if (ImGui::InputText("##NodeName", buffer, sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue))
+                {
+                    node->userDefinedName = buffer;
+                }
                 ImGui::Text("ID: %p", node->ID.AsPointer());
                 ImGui::Text("Type: %s", node->Type == NodeType::Blueprint ? "Blueprint" : (node->Type == NodeType::Tree ? "Tree" : "Comment"));
                 ImGui::Text("Inputs: %d", (int)node->Inputs.size());
@@ -2169,8 +2221,19 @@ struct Example:
             drawList->PopClipRect();
         }
         //we do all the rendering of the shader at the end of the program
-
-        Render::testRender();
+        if (program_one.isActive)
+        {
+            Render::testRender(&program_one);
+        }
+        else if (program_two.isActive)
+        {
+            Render::testRender(&program_two);
+        }
+        else
+        {
+            Render::testRender();
+        }
+        
 
         SDL_GL_SwapWindow(sdl_window);
         //ImGui::ShowTestWindow();

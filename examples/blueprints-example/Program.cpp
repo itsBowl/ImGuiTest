@@ -47,15 +47,64 @@ namespace Render
 
 	bool Program::updateShader(std::string newSrc)
 	{
-		if (!0)
+		auto start{ std::chrono::steady_clock::now() };
+		if (!makeProgramFromString(newSrc)) 
+		{
+			auto finish{ std::chrono::steady_clock::now() };
+			std::chrono::duration<double> dur {finish - start};
+			std::cout << "compile time on fail: " << dur << "\n";
+			std::cout << "failed to make new program\n";
+			return false; 
+		}
+
+		auto finish{ std::chrono::steady_clock::now() };
+		std::chrono::duration<double> dur {finish - start};
+		std::cout << "compile time on success: " << dur << "\n";
+		
 
 		return true;
 	}
 
 	bool Program::makeProgramFromString(const std::string& src)
 	{
-		// TODO: Write this function
-		return false;
+		if (vertexID) { glDetachShader(id, vertexID); vertexID = 0; }
+		if (fragmentID) { glDetachShader(id, fragmentID); fragmentID = 0; }
+		glDeleteShader(id);
+		id = 0;
+		id = glCreateProgram();
+		if (id == 0)
+		{
+			std::cout << "Failed to create new ID";
+			return false;
+		}
+		std::vector<char> vertString(vertexShaderSource.begin(), vertexShaderSource.end());
+		vertString.push_back('\0');
+		vertexID = compileShader(GL_VERTEX_SHADER, vertString);
+		
+		std::vector<char> fragString(src.begin(), src.end());
+		fragString.push_back('\0');
+		fragmentID = compileShader(GL_FRAGMENT_SHADER, fragString);
+
+		if (fragmentID == 0 || vertexID == 0) 
+		{ 
+			std::cout << "Failed to create shaders\n";
+			return false; 
+		}
+
+		glAttachShader(id, vertexID);
+		glAttachShader(id, fragmentID);
+		glLinkProgram(id);
+		glDeleteShader(vertexID);
+		glDeleteShader(fragmentID);
+
+
+		
+		if (!compileStatus(id)) 
+		{ 
+			std::cout << "Failed to link program\n";
+			return false;
+		}
+		return true;
 	}
 
 	GLuint Program::compileShader(GLenum type, const std::vector<char>& src)
@@ -72,33 +121,59 @@ namespace Render
 	{
 		GLint result = GL_FALSE;
 		int type = 0, logLength = 0, srcLength = 0;
-		if (glIsShader(shader)) { glGetShaderiv(shader, GL_SHADER_TYPE, &type); }
-		else if (glIsProgram(shader)) { type = GL_PROGRAM; }
+		if (glIsShader(shader)) 
+		{ 
+			glGetShaderiv(shader, GL_SHADER_TYPE, &type); 
+		}
+		else if (glIsProgram(shader)) 
+		{ 
+			type = GL_PROGRAM; 
+		}
 
-		if (type == GL_PROGRAM) { glGetProgramiv(shader, GL_LINK_STATUS, &result); }
-		else { glGetShaderiv(shader, GL_COMPILE_STATUS, &result); }
+
+		if (type == GL_PROGRAM) 
+		{ 
+			glGetProgramiv(shader, GL_LINK_STATUS, &result); 
+		}
+		else 
+		{ 
+			glGetShaderiv(shader, GL_COMPILE_STATUS, &result); 
+		}
 
 		if (result == GL_FALSE)
 		{
-			if (type == GL_PROGRAM)
+			if (type != GL_PROGRAM)
 			{
-				glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-				std::string shaderError((logLength > 1) ? logLength : 1, '\0');
-				glGetShaderInfoLog(shader, logLength, NULL, shaderError.data());
 
 				glGetShaderiv(shader, GL_SHADER_SOURCE_LENGTH, &srcLength);
-				std::string shaderSrc((srcLength > 1) ? srcLength : 1, '\0');
-				glGetShaderSource(shader, srcLength, NULL, shaderSrc.data());
+				if (srcLength > 0) {
+					std::vector<char> shaderSrc(srcLength);
+					glGetShaderSource(shader, srcLength, nullptr, shaderSrc.data());
+					std::cout << "Shader Source:\n" << shaderSrc.data() << std::endl;
+				}
 
-				std::cout << shaderSrc << std::endl;
-				std::cout << (std::format("Error compiling shader: {}", shaderError));
+				glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+				if (logLength > 0) {
+					std::vector<char> shaderError(logLength);
+					glGetShaderInfoLog(shader, logLength, nullptr, shaderError.data());
+					std::cout << std::format("Error compiling shader: {}\n", shaderError.data());
+				}
 			}
 			else
 			{
 				glGetProgramiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-				std::string programError((logLength > 1) ? logLength : 1, '\0');
-				glGetProgramInfoLog(shader, logLength, NULL, programError.data());
-				std::cout << (std::format("Error linking program: {}", programError));
+				if (logLength > 0) 
+				{
+					std::vector<char> programError(logLength);
+					glGetProgramInfoLog(shader, logLength, nullptr, programError.data());
+					std::cout << std::format("Error linking program: {}\n", programError.data());
+				}
+				
+			}
+
+			GLenum err;
+			while ((err = glGetError()) != GL_NO_ERROR) {
+				std::cerr << "OpenGL Error: " << err << std::endl;
 			}
 			return false;
 		}

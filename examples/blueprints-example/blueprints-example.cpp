@@ -438,6 +438,34 @@ struct Example:
             break;
         case NodeType::FloatPow:
             code += "float " + nodeVar + " = pow(" + inVars[0] + ", " + inVars[1] + ");\n";
+            break;
+        case NodeType::FloatAbsolute:
+            code += "float " + nodeVar + " = abs(" + inVars[0] + ");\n";
+            break;
+        case NodeType::Sign:
+            code += "float " + nodeVar + " = sign(" + inVars[0] + ");\n";
+            break;
+        case NodeType::Floor:
+            code += "float " + nodeVar + " = floor(" + inVars[0] + ");\n";
+            break;
+        case NodeType::Ceil:
+            code += "float " + nodeVar + " = ceil(" + inVars[0] + ");\n";
+            break;
+        case NodeType::Fract:
+            code += "float " + nodeVar + " = fract(" + inVars[0] + ");\n";
+            break;
+        case NodeType::Mod:
+            code += "float " + nodeVar + " = mod(" + inVars[0] + ", " + inVars[1] + ");\n";
+            break;
+        case NodeType::FloatMin:
+            code += "float " + nodeVar + " = min(" + inVars[0] + ", " + inVars[1] +  ");\n";
+            break;
+        case NodeType::FloatMax:
+            code += "float " + nodeVar + " = max(" + inVars[0] + ", " + inVars[1] + ");\n";
+            break;
+        case NodeType::Clamp:
+            code += "float " + nodeVar + " = clamp(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ");\n";
+            break;
         //Triganometry
         case NodeType::Sin:
             code += "float " + nodeVar + " = sin(" + inVars[0] + ");\n";
@@ -462,11 +490,20 @@ struct Example:
             break;
         case NodeType::Length:
             code += "float " + nodeVar + " = length("+ inVars[0] + ");\n";
+            break;
         case NodeType::Normalize:
             code += "vec4 " + nodeVar + " = normalize(" + inVars[0] + ");\n";
+            break;
 
         //Vector Utilities
         case NodeType::Combine:
+            //if (inVars.size() != 4)
+            //{
+            //    for (int i = 0; i <= 4 - inVars.size(); i++)
+            //    {
+            //        inVars.push_back("0.0f");
+            //    }
+            //}
             code += "vec4 " + nodeVar + " = vec4(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ", " + inVars[3] + ");\n";
             break;
         //these nodes don't add any code, so we just stack them up here
@@ -969,6 +1006,7 @@ struct Example:
         m_Nodes.back().Type = NodeType::Mod;
         m_Nodes.back().isShader = true;
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
 
         BuildNode(&m_Nodes.back());
@@ -982,6 +1020,7 @@ struct Example:
         m_Nodes.back().Type = NodeType::FloatMin;
         m_Nodes.back().isShader = true;
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
 
         BuildNode(&m_Nodes.back());
@@ -995,6 +1034,7 @@ struct Example:
         m_Nodes.back().Type = NodeType::VectorMin;
         m_Nodes.back().isShader = true;
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
@@ -1008,6 +1048,7 @@ struct Example:
         m_Nodes.back().Type = NodeType::FloatMax;
         m_Nodes.back().isShader = true;
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
 
         BuildNode(&m_Nodes.back());
@@ -1021,6 +1062,7 @@ struct Example:
         m_Nodes.back().Type = NodeType::VectorMax;
         m_Nodes.back().isShader = true;
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
@@ -1034,6 +1076,9 @@ struct Example:
         m_Nodes.back().Type = NodeType::Clamp;
         m_Nodes.back().isShader = true;
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "min", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "max", PinType::Float);
+
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
 
         BuildNode(&m_Nodes.back());
@@ -2719,7 +2764,7 @@ struct Example:
     std::vector<Node> copiedNodes;
     std::vector<Link> copiedLinks;
 
-}
+};
 
 int Main(int argc, char** argv)
 {

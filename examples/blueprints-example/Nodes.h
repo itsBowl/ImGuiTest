@@ -35,11 +35,32 @@ enum class NodeType
     FloatMultiply,
     FloatDivide,
     FloatPow,
+    //commonFunc
+    FloatAbsolute,
+    VectorAbsolute,
+    Sign,
+    Floor,
+    Ceil,
+    Fract,
+    Mod,
+    FloatMin,
+    VectorMin,
+    FloatMax,
+    VectorMax,
+    Clamp,
+    Mix, //this one could be a little painful so may be excluded
+
     //triganomatry
     Sin,
     Cos,
     Tan,
     //Vector
+    VectorConstant,
+    Dot,
+    Cross,
+    Length,
+    Normalize,
+
     Combine,
     Split,
 

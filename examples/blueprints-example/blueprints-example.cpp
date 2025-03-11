@@ -203,6 +203,114 @@ struct Example:
         return nullptr;
     }
 
+    //Very WIP needs significant work
+    void copyNodes()
+    {
+        int selection = ed::GetSelectedObjectCount();
+        if (selection <= 0) return;
+
+        std::vector<ed::NodeId> selected(selection);
+        ed::GetSelectedNodes(selected.data(), selection);
+
+        copiedNodes.clear();
+        copiedLinks.clear();
+        for (auto id : selected)
+        {
+            Node* base = FindNode(id);
+            if (base)
+            {
+                copiedNodes.push_back(*base);
+            }
+        }
+
+        //loop over links, get pins, link pins to nodes, sounds like hell tbh
+    }
+
+    void pasteNodes()
+    {
+        std::vector<ed::NodeId> newNodes;
+        for (auto n : copiedNodes)
+        {
+            Node* newNode = nullptr;
+            switch (n.Type)
+            {
+            case NodeType::FloatConstant:
+                newNode = spawnFloatConstantNode();
+                newNode->value.x = n.value.x;
+            }
+        }
+    }
+
+    std::string getNodeName(Node& node)
+    {
+        if (node.userDefinedName != "")
+        {
+            return node.userDefinedName;
+        }
+        else
+        {
+            return "var" + std::to_string(node.ID.Get());
+        }
+    }
+
+    void getVariableNameFromSplit(Node* connected, Node* current, std::vector<std::string>& vars, Pin& p)
+    {
+        if (connected->Type == NodeType::UV)
+        {
+            for (auto& l : m_Links)
+            {
+                for (auto& o : connected->Outputs)
+                {
+                    if (l.EndPinID == p.ID && l.StartPinID == o.ID)
+                    {
+                        if (o.Name == "x")
+                        {
+                            vars.push_back("vUV.x");
+                        }
+                        else if (o.Name == "y")
+                        {
+                            vars.push_back("vUV.y");
+                        }
+                    }
+                }
+            }
+        }
+        else if (connected->Type == NodeType::Split)
+        {
+            Node* prev;
+            //split is garenteed to have one input, but we're doing this because it's safer
+            for (auto& i : connected->Inputs)
+            {
+                prev = findConnected(i.ID);
+            }
+            for (auto& l : m_Links)
+            {
+                for (auto& o : connected->Outputs)
+                {
+                    if (l.EndPinID == p.ID && l.StartPinID == o.ID)
+                    {
+                        if (o.Name == "x")
+                        {
+                            vars.push_back(getNodeName(*prev) + ".x");
+                        }
+                        else if (o.Name == "y")
+                        {
+                            vars.push_back(getNodeName(*prev) + ".y");
+                        }
+                        else if (o.Name == "z")
+                        {
+                            vars.push_back(getNodeName(*prev) + ".z");
+                        }
+                        else if (o.Name == "w")
+                        {
+                            vars.push_back(getNodeName(*prev) + ".w");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     std::string generateNodeCode(Node& node, std::unordered_map<uint64_t, std::string>& names, std::unordered_map<uint64_t, std::string>& generated)
     {
         auto nodeID = node.ID.Get();
@@ -280,25 +388,10 @@ struct Example:
                 {
                     code += generateNodeCodeStr(*connected, variableNames);
                 }
-                if (connected->Type == NodeType::UV)
+                //slightly hacky system for pushing UV input variables into the inVars structure without redefining them
+                if (connected->Type == NodeType::UV || connected->Type == NodeType::Split)
                 {
-                    for (auto& l : m_Links)
-                    {
-                        for (auto& o : connected->Outputs)
-                        {
-                            if (l.EndPinID == p.ID && l.StartPinID == o.ID)
-                            {
-                                if (o.Name == "x")
-                                {
-                                    inVars.push_back("vUV.x");
-                                }
-                                else if (o.Name == "y")
-                                {
-                                    inVars.push_back("vUV.y");
-                                }
-                            }
-                        }
-                    }
+                    getVariableNameFromSplit(connected, &node, inVars, p);
                 }
                 else
                 {
@@ -345,6 +438,7 @@ struct Example:
             break;
         case NodeType::FloatPow:
             code += "float " + nodeVar + " = pow(" + inVars[0] + ", " + inVars[1] + ");\n";
+        //Triganometry
         case NodeType::Sin:
             code += "float " + nodeVar + " = sin(" + inVars[0] + ");\n";
             break;
@@ -354,13 +448,30 @@ struct Example:
         case NodeType::Tan:
             code += "float " + nodeVar + " = tan(" + inVars[0] + ");\n";
             break;
-        case NodeType::Combine:
-            code += "vec4 " + nodeVar + " = " + "vec4(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ", " + inVars[3] + ");\n";
+        //Vector
+        // causing errors with drawing nodes, will fix if have time
+        //case NodeType::VectorConstant:
+        //    code += "vec4 " + nodeVar + " = " + "vec4(" + std::to_string(node.value.x) + ", " + std::to_string(node.value.y) + ", " 
+        //        + std::to_string(node.value.z) + ", " + std::to_string(node.value.w) + ");\n";
+
+        case NodeType::Dot:
+            code += "float " + nodeVar + " = dot(", inVars[0] + ", " + inVars[1] + ");\n";
             break;
+        case NodeType::Cross:
+            code += "vec4 " + nodeVar + " = cross(", inVars[0] + ", " + inVars[1], ");\n";
+            break;
+        case NodeType::Length:
+            code += "float " + nodeVar + " = length("+ inVars[0] + ");\n";
+        case NodeType::Normalize:
+            code += "vec4 " + nodeVar + " = normalize(" + inVars[0] + ");\n";
+
+        //Vector Utilities
+        case NodeType::Combine:
+            code += "vec4 " + nodeVar + " = vec4(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ", " + inVars[3] + ");\n";
+            break;
+        //these nodes don't add any code, so we just stack them up here
+        case NodeType::Split:
         case NodeType::UV:
-            //inVars.push_back("vUV.x");
-            //inVars.push_back("vUV.y");
-            
             break;
         case NodeType::Output:
             code += nodeVar + " = " + inVars[1] + ";\n";
@@ -691,6 +802,9 @@ struct Example:
 
 
     //#TODO ADDING NEW NODES HERE
+    
+
+    //Float nodes
     Node* spawnFloatConstantNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Constant");
@@ -771,14 +885,264 @@ struct Example:
         return &m_Nodes.back();
     }
 
-    Node* spawnTestNode()
+    Node* spawnFloatAbsNode()
     {
-        m_Nodes.emplace_back(GetNextId(), "StringTest");
-        m_Nodes.back().Type = NodeType::Simple;
+        m_Nodes.emplace_back(GetNextId(), "Absolute");
+        m_Nodes.back().Type = NodeType::FloatAbsolute;
         m_Nodes.back().isShader = true;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "StringInput", PinType::String);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::String);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
 
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVectorAbsNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Absolute");
+        m_Nodes.back().Type = NodeType::VectorAbsolute;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnSignNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Sign");
+        m_Nodes.back().Type = NodeType::Sign;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnFloorNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Floor");
+        m_Nodes.back().Type = NodeType::Floor;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnCeilNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Ceil");
+        m_Nodes.back().Type = NodeType::Ceil;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnFractNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Fract");
+        m_Nodes.back().Type = NodeType::Fract;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnModNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Modulus");
+        m_Nodes.back().Type = NodeType::Mod;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnFloatMinNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Min");
+        m_Nodes.back().Type = NodeType::FloatMin;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVectorMinNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Min");
+        m_Nodes.back().Type = NodeType::VectorMin;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnFloatMaxNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Max");
+        m_Nodes.back().Type = NodeType::FloatMax;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVectorMaxNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Max");
+        m_Nodes.back().Type = NodeType::VectorMax;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnClampNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Clamp");
+        m_Nodes.back().Type = NodeType::Clamp;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnMixNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Mix");
+        m_Nodes.back().Type = NodeType::Mix;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnSineNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Sine");
+        m_Nodes.back().Type = NodeType::Sin;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnCosineNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Cosine");
+        m_Nodes.back().Type = NodeType::Cos;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnTanNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Tan");
+        m_Nodes.back().Type = NodeType::Tan;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+   
+
+
+    // Vector nodes
+
+    Node* spawnDotNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Dot Product");
+        m_Nodes.back().Type = NodeType::Dot;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "dot", PinType::Float);
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnCrossNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Cross Product");
+        m_Nodes.back().Type = NodeType::Cross;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "cross", PinType::Vector4);
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnLengthNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Length");
+        m_Nodes.back().Type = NodeType::Length;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "length", PinType::Float);
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnNormaliseNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Normalise");
+        m_Nodes.back().Type = NodeType::Normalize;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "normal vector", PinType::Vector4);
         BuildNode(&m_Nodes.back());
 
         return &m_Nodes.back();
@@ -794,6 +1158,34 @@ struct Example:
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "z", PinType::Float);
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "w", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "vec4", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnSplitNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Split");
+        m_Nodes.back().Type = NodeType::Split;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "vec4", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "x", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "y", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "z", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "w", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVec4ConstNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Constant");
+        m_Nodes.back().Type = NodeType::FloatConstant;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
 
@@ -850,8 +1242,6 @@ struct Example:
                 return spawnFloatDivideNode();
             ImGui::EndPopup();
         }
-        if (ImGui::MenuItem("Test String"))
-            return spawnTestNode();
         if (ImGui::MenuItem("Combine"))
             return spawnCombineNode();
         ImGui::Separator();
@@ -1066,6 +1456,9 @@ struct Example:
 
     void ShowLeftPane(float paneWidth)
     {
+        //selectedNodes.clear();
+        //selectedLinks.clear();
+
         auto& io = ImGui::GetIO();
 
         ImGui::BeginChild("Selection", ImVec2(paneWidth, 0));
@@ -1282,7 +1675,7 @@ struct Example:
 
     void OnFrame(float deltaTime) override
     {
-
+        //clear the buffer for the next frame
         glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -1396,12 +1789,28 @@ struct Example:
                                 ImGui::Spring(0);
                         builder.EndHeader();
                     }
-                    //custom drawing for float constant nodes
+                    //custom drawing for constant nodes
                     if (node.Type == NodeType::FloatConstant)
                     {
                         ImGui::PushItemWidth(100);
                         ImGui::DragFloat(("##FloatValue" + std::to_string(node.ID.Get())).c_str(), &node.value.x, 0.1f, 0.0f, 1.0f);
                         ImGui::PopItemWidth();
+                    }
+                    else if (node.Type == NodeType::VectorConstant)
+                    {
+                        ImGui::PushItemWidth(100);
+                        ImGui::DragFloat(("##FloatValue" + std::to_string(node.ID.Get())).c_str(), &node.value.x, 0.1f, 0.0f, 1.0f);
+                        
+                        ImGui::DragFloat(("##FloatValue" + std::to_string(node.ID.Get())).c_str(), &node.value.y, 0.1f, 0.0f, 1.0f);
+                        
+                        ImGui::DragFloat(("##FloatValue" + std::to_string(node.ID.Get())).c_str(), &node.value.z, 0.1f, 0.0f, 1.0f);
+                        
+                        ImGui::DragFloat(("##FloatValue" + std::to_string(node.ID.Get())).c_str(), &node.value.w, 0.1f, 0.0f, 1.0f);
+                        ImGui::PopItemWidth();
+                        ImVec2 minSize = { 150, 150 };
+                        ImVec2 contentSize = ImGui::GetItemRectSize();
+
+                        ImGui::Dummy(ImVec2(std::max(contentSize.x, minSize.x), std::max(contentSize.y, minSize.y)));
                     }
                     for (auto& input : node.Inputs)
                     {
@@ -2103,12 +2512,61 @@ struct Example:
                     node = spawnFloatMultiplyNode();
                 if (ImGui::MenuItem("Divide"))
                     node = spawnFloatDivideNode();
+                if (ImGui::MenuItem("Power"))
+                    node = spawnFloatPowNode();
+                if (ImGui::MenuItem("Sign"))
+                    node = spawnSignNode();
+                if (ImGui::MenuItem("Floor"))
+                    node = spawnFloorNode();
+                if (ImGui::MenuItem("Ceil"))
+                    node = spawnCeilNode();
+                if (ImGui::MenuItem("Fract"))
+                    node = spawnFractNode();
+                if (ImGui::MenuItem("Modulo"))
+                    node = spawnModNode();
+                if (ImGui::MenuItem("Min"))
+                    node = spawnFloatMinNode();
+                if (ImGui::MenuItem("Max"))
+                    node = spawnFloatMaxNode();
+                if (ImGui::MenuItem("Clamp"))
+                    node = spawnClampNode();
                 ImGui::EndPopup();
             }
-            if (ImGui::MenuItem("Test String"))
-                node = spawnTestNode();
-            if (ImGui::MenuItem("Combine"))
-                node = spawnCombineNode();
+
+            if (ImGui::BeginMenu("Trig"))
+            {
+                if (ImGui::MenuItem("Sine"))
+                    node = spawnSineNode();
+                if (ImGui::MenuItem("Cosine"))
+                    node = spawnCosineNode();
+                if (ImGui::MenuItem("Tangent"))
+                    node = spawnTanNode();
+                ImGui::EndPopup();
+            }
+
+            if (ImGui::BeginMenu("Vector Maths"))
+            {
+                if (ImGui::MenuItem("Dot Product"))
+                    node = spawnDotNode();
+                if (ImGui::MenuItem("Cross Product"))
+                    node = spawnCrossNode();
+                if (ImGui::MenuItem("Length"))
+                    node = spawnLengthNode();
+                if (ImGui::MenuItem("Normalise"))
+                    node = spawnNormaliseNode();
+                if (ImGui::MenuItem("Combine"))
+                    node = spawnCombineNode();
+                if (ImGui::MenuItem("Split"))
+                    node = spawnSplitNode();
+                ImGui::EndPopup();
+            }
+            
+            //if (ImGui::MenuItem("Combine"))
+            //    node = spawnCombineNode();
+            
+            //this node is causing rendering errors so we're ignoring it for now
+            //if (ImGui::MenuItem("Vector Constant"))
+            //    node = spawnVec4ConstNode();
             ImGui::Separator();
             if (ImGui::MenuItem("Print String"))
                 node = SpawnPrintStringNode();
@@ -2251,13 +2709,17 @@ struct Example:
     std::map<ed::NodeId, float, NodeIdLess> m_NodeTouchTime;
     bool                 m_ShowOrdinals = false;
 
-    //my stuff here for rendering
+    //my stuff here for rendering and extending the codebase to be a better shader editor
     SDL_Window*          sdl_window;
     int                  sdl_width = 640;
     int                  sdl_height = 480;
     Render::Program      program_one;
     Render::Program      program_two;
-};
+
+    std::vector<Node> copiedNodes;
+    std::vector<Link> copiedLinks;
+
+}
 
 int Main(int argc, char** argv)
 {

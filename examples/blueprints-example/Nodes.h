@@ -48,7 +48,7 @@ enum class NodeType
     FloatMax,
     VectorMax,
     Clamp,
-    Mix, //this one could be a little painful so may be excluded
+    Mix,
 
     //triganomatry
     Sin,
@@ -56,13 +56,20 @@ enum class NodeType
     Tan,
     //Vector
     VectorConstant,
+    VectorAdd,
+    VectorSubtract,
+    VectorMultiply,
+    VectorDivide,
     Dot,
     Cross,
     Length,
     Normalize,
+    Scale,
 
     Combine,
     Split,
+
+    PerlinNoise,
 
     //Input
     UV,

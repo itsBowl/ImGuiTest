@@ -21,6 +21,10 @@
 #include "Nodes.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#include "ExtraShaderCode.h"
+#include "nlohmann/json.hpp"
+#include <fstream>
+#include "crude_json.h"
 
 
 static inline ImRect ImGui_GetItemRect()
@@ -42,6 +46,7 @@ namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;
 
 using namespace ax;
+using json = nlohmann::json;
 
 using ax::Widgets::IconType;
 
@@ -90,6 +95,7 @@ struct Node
     ImVec2 Size;
 
     ImVec4 value;
+    uint64_t index;
 
     std::string State;
     std::string SavedState;
@@ -107,6 +113,12 @@ struct Link
 
     ed::PinId StartPinID;
     ed::PinId EndPinID;
+
+    uint64_t startNodeIdx;
+    uint64_t startPinOffset;
+    uint64_t endNodeIdx;
+    uint64_t endPinOffset;
+    
 
     ImColor Color;
 
@@ -141,6 +153,7 @@ struct Example:
 {
     using Application::Application;
 
+    std::string displayShaderCode = "";
     std::string shaderCode = "";
 
     int GetNextId()
@@ -202,28 +215,225 @@ struct Example:
         }
         return nullptr;
     }
+    /*
+    struct Node
+{
+    ed::NodeId ID;
+    std::string Name;
+    std::string userDefinedName = "";
+    std::vector<Pin> Inputs;
+    std::vector<Pin> Outputs;
+    ImColor Color;
+    NodeType Type;
+    bool isShader = false;
+    ImVec2 Size;
+
+    ImVec4 value;
+};*/
+
+    void to_json(json& j, const std::vector<Node>& nodes)
+    {
+        j = json::array();
+        for (auto& n : nodes)
+        {
+            json node;
+            to_json(node, n);
+            j.push_back(node);
+        }
+    }
+    void to_json(json& j, const Node& n)
+    {
+        j = json{
+            { "index", n.index },
+            { "name", n.Name },
+            { "userName", n.userDefinedName },
+            { "type", static_cast<uint32_t>(n.Type)},
+            {"x", n.value.x},
+            {"y", n.value.y},
+            {"z", n.value.z},
+            {"w", n.value.w},
+            {"state", n.State}
+        };
+    }
+    void from_json(json& j, Node& n)
+    {
+        j.at("index").get_to(n.index);
+        j.at("name").get_to(n.Name);
+        j.at("userName").get_to(n.userDefinedName);
+        j.at("type").get_to(n.Type);
+        j.at("x").get_to(n.value.x);
+        j.at("y").get_to(n.value.y);
+        j.at("z").get_to(n.value.z);
+        j.at("w").get_to(n.value.w);
+    }
+    void from_json(json& j, Node* n)
+    {
+        j.at("index").get_to(n->index);
+        j.at("name").get_to(n->Name);
+        j.at("userName").get_to(n->userDefinedName);
+        j.at("type").get_to(n->Type);
+        j.at("x").get_to(n->value.x);
+        j.at("y").get_to(n->value.y);
+        j.at("z").get_to(n->value.z);
+        j.at("w").get_to(n->value.w);
+        j.at("state").get_to(n->SavedState);
+    }
+
+    /*
+    struct Link
+
+    ed::LinkId ID;
+
+    ed::PinId StartPinID;
+    ed::PinId EndPinID;
+
+    ImColor Color;
+    */
+    void to_json(json& j, const Link& l)
+    {
+        j = json{
+            {"startNodeIdx", l.startNodeIdx},
+            {"startPinOffset", l.startPinOffset},
+            {"endNodeIdx", l.endNodeIdx},
+            {"endPinOffset", l.endPinOffset},
+        };
+    }
+
+    void to_json(json& j, const std::vector<Link>& links)
+    {
+        j = json::array();
+        for (auto& l : links)
+        {
+            json link;
+            to_json(link, l);
+            j.push_back(link);
+        }
+    }
+    
+
+    void from_json(json& j, Link& l)
+    {
+        j.at("startNodeIdx").get_to(l.startNodeIdx);
+        j.at("startPinOffset").get_to(l.startPinOffset);
+        j.at("endNodeIdx").get_to(l.endNodeIdx);
+        j.at("endPinOffset").get_to(l.endPinOffset);
+    }
+
+    std::string serialiseNode(Node* n)
+    {
+        
+    }
 
     //Very WIP needs significant work
-    void copyNodes()
+    void copyNodes(json& j)
     {
+        std::cout << "Copied Nodes: \n";
         int selection = ed::GetSelectedObjectCount();
+        //testing
+
+        //selection = m_Nodes.size();
         if (selection <= 0) return;
 
         std::vector<ed::NodeId> selected(selection);
-        ed::GetSelectedNodes(selected.data(), selection);
-
+        ed::GetSelectedNodes(selected.data(), selection);        
+        
+        std::unordered_map<uint64_t, uint64_t> indexMap;
+        
         copiedNodes.clear();
         copiedLinks.clear();
-        for (auto id : selected)
+        for (size_t i = 0; i < selected.size(); i++)
         {
-            Node* base = FindNode(id);
-            if (base)
+            uint64_t id = selected[i].Get();
+            for (auto& n : m_Nodes)
             {
-                copiedNodes.push_back(*base);
+                if (n.ID.Get() == id)
+                {
+                    indexMap[id] = copiedNodes.size();
+                    n.index = indexMap[id];
+                    copiedNodes.push_back(n);
+                }
             }
         }
 
-        //loop over links, get pins, link pins to nodes, sounds like hell tbh
+        serialiseLinks(indexMap);
+        std::cout << "End of copy operation\n";
+    }
+
+    void serialiseNodeTree()
+    {
+        copiedNodes.clear();
+        copiedLinks.clear();
+        std::unordered_map<uint64_t, uint64_t> indexMap;
+
+        for (size_t i = 0; i < m_Nodes.size(); i++)
+        {
+            uint64_t id = m_Nodes[i].ID.Get();
+            for (auto& n : m_Nodes)
+            {
+                if (n.ID.Get() == id)
+                {
+                    indexMap[id] = copiedNodes.size();
+                    n.index = indexMap[id];
+                    copiedNodes.push_back(n);
+                }
+            }
+        }
+        serialiseLinks(indexMap);
+
+        outputJson["nodes"] = json::array();
+        for (auto& n : copiedNodes)
+        {
+            json node;
+            to_json(node, n);
+            outputJson["nodes"].push_back(node);
+        }
+        outputJson["links"] = json::array();
+        for (auto& l : copiedLinks)
+        {
+            json link;
+            to_json(link, l);
+            outputJson["links"].push_back(link);
+        }
+        std::cout << "End of serialise operation\n";
+    }
+
+    void serialiseLinks(std::unordered_map<uint64_t, uint64_t>& indexMap)
+    {
+        for (const auto& l : m_Links)
+        {
+            uint64_t startPin = static_cast<uint64_t>(l.StartPinID.Get());
+            uint64_t endPin = static_cast<uint64_t>(l.EndPinID.Get());
+            uint64_t startNodeId;
+            uint64_t endNodeId;
+
+            for (auto& n : copiedNodes)
+            {
+                for (auto& p : n.Inputs)
+                {
+                    if (p.ID == l.EndPinID)
+                    {
+                        endNodeId = static_cast<uint64_t>(n.ID.Get());
+                    }
+                }
+                for (auto& p : n.Outputs)
+                {
+                    if (p.ID == l.StartPinID)
+                    {
+                        startNodeId = static_cast<uint64_t>(n.ID.Get());
+                    }
+                }
+
+            }
+            if (indexMap.count(startNodeId) && indexMap.count(endNodeId))
+            {
+                Link copied(0, 0, 0);
+                copied.startNodeIdx = indexMap[startNodeId];
+                copied.endNodeIdx = indexMap[endNodeId];
+                copied.startPinOffset = l.StartPinID.Get() - startNodeId;
+                copied.endPinOffset = l.EndPinID.Get() - endNodeId;
+                copiedLinks.push_back(copied);
+            }
+        }
     }
 
     void pasteNodes()
@@ -309,69 +519,6 @@ struct Example:
                 }
             }
         }
-    }
-
-    std::string generateNodeCode(Node& node, std::unordered_map<uint64_t, std::string>& names, std::unordered_map<uint64_t, std::string>& generated)
-    {
-        auto nodeID = node.ID.Get();
-        auto nameCount = names.count(nodeID);
-        if (names.count(node.ID.Get()) > 0)
-        {
-            return names[node.ID.Get()];
-        }
-        std::string code;
-        std::string nodeVar = "var" + std::to_string(node.ID.Get());
-        names[node.ID.Get()] = nodeVar;
-
-        std::vector<std::string> inVars;
-        
-        for (auto& pin : node.Inputs)
-        {
-            Node* connected = findConnected(pin.ID);
-            if (connected)
-            {
-                inVars.push_back(generateNodeCode(*connected, names, generated));
-            }
-            else
-            {
-                if (node.Type == NodeType::FloatConstant)
-                {
-                    inVars.push_back(std::to_string(node.value.x));
-                }
-                else
-                {
-                    inVars.push_back("0.0f"); //default value for now, we can make this fancy later
-                }
-                
-            }
-        }
-
-        switch (node.Type)
-        {
-        case NodeType::FloatConstant:
-            //since we know the value here is constant we can read it directly from the node and not worry about pin linking ;p
-            code = "float " + nodeVar + " = " + std::to_string(node.value.x) + ";\n";
-            break;
-        case NodeType::FloatAdd:
-            code = "float " + nodeVar + " = " + inVars[0] + " + " + inVars[1] + ";\n";
-            break;
-        case NodeType::FloatSubtract:
-            code = "float " + nodeVar + " = " + inVars[0] + " - " + inVars[1] + ";\n";
-            break;
-        case NodeType::FloatMultiply:
-            code = "float " + nodeVar + " = " + inVars[0] + " * " + inVars[1] + ";\n";
-            break;
-        case NodeType::FloatDivide:
-            code = "float " + nodeVar + " = " + inVars[0] + " / " + inVars[1] + ";\n";
-            break;
-        case NodeType::Combine:
-            code = "vec3 " + nodeVar + " = " + "vec3(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ");\n";
-            break;
-        }
-
-        generated[node.ID.Get()] = code;
-
-        return nodeVar;
     }
 
     std::string generateNodeCodeStr(Node& node, std::unordered_map<uint64_t, std::string>& variableNames)
@@ -466,6 +613,9 @@ struct Example:
         case NodeType::Clamp:
             code += "float " + nodeVar + " = clamp(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ");\n";
             break;
+        case NodeType::Mix:
+            code += "float " + nodeVar + " = mix(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + "0;\n";
+
         //Triganometry
         case NodeType::Sin:
             code += "float " + nodeVar + " = sin(" + inVars[0] + ");\n";
@@ -481,7 +631,18 @@ struct Example:
         //case NodeType::VectorConstant:
         //    code += "vec4 " + nodeVar + " = " + "vec4(" + std::to_string(node.value.x) + ", " + std::to_string(node.value.y) + ", " 
         //        + std::to_string(node.value.z) + ", " + std::to_string(node.value.w) + ");\n";
-
+        case NodeType::VectorAdd:
+            code += "vec4 " + nodeVar + " = " + inVars[0] + " + " + inVars[1] + ";\n";
+            break;
+        case NodeType::VectorSubtract:
+            code += "vec4 " + nodeVar + " = " + inVars[0] + " - " + inVars[1] + ";\n";
+            break;
+        case NodeType::VectorMultiply:
+            code += "vec4 " + nodeVar + " = " + inVars[0] + " * " + inVars[1] + ";\n";
+            break;
+        case NodeType::VectorDivide:
+            code += "vec4 " + nodeVar + " = " + inVars[0] + " / " + inVars[1] + ";\n";
+            break;
         case NodeType::Dot:
             code += "float " + nodeVar + " = dot(", inVars[0] + ", " + inVars[1] + ");\n";
             break;
@@ -497,19 +658,19 @@ struct Example:
 
         //Vector Utilities
         case NodeType::Combine:
-            //if (inVars.size() != 4)
-            //{
-            //    for (int i = 0; i <= 4 - inVars.size(); i++)
-            //    {
-            //        inVars.push_back("0.0f");
-            //    }
-            //}
             code += "vec4 " + nodeVar + " = vec4(" + inVars[0] + ", " + inVars[1] + ", " + inVars[2] + ", " + inVars[3] + ");\n";
             break;
         //these nodes don't add any code, so we just stack them up here
         case NodeType::Split:
         case NodeType::UV:
             break;
+
+        //float perlinNoise(vec2 position, int frequency, int octaveCount, float persistence, float lacunarity, uint seed)
+        case NodeType::PerlinNoise:
+            code += "float " + nodeVar + " = perlinNoise(vec2(" + inVars[0] + "), "
+                + inVars[1] + ", " + inVars[2] + ", " + inVars[3] +
+                ", " + inVars[4] + ", " + inVars[5] + ");\n";
+                break;
         case NodeType::Output:
             code += nodeVar + " = " + inVars[1] + ";\n";
         }
@@ -521,25 +682,35 @@ struct Example:
 
     void buildShader()
     {
+        displayShaderCode.clear();
         shaderCode.clear();
         std::unordered_map<uint64_t, std::string> names;
         std::unordered_map<uint64_t, std::string> code;
-        shaderCode = "#version 450 core\nin vec2 vUV;\nlayout (location = 0) out vec4 fragColour;\n\nvoid main() {\n";
+        shaderCode = "#version 450 core\nin vec2 vUV;\nlayout (location = 0) out vec4 fragColour;";
+        shaderCode += perlinShaderCode;
+            
+        shaderCode += "\n\nvoid main() {\n";
+        displayShaderCode = "#version 450 core\nin vec2 vUV;\nlayout (location = 0) out vec4 fragColour;\n\nvoid main() {\n";
+        std::string generatedShaderCode = "";
 
         for (auto n : m_Nodes)
         {
             if (n.Type == NodeType::Output)
             {
-                shaderCode += generateNodeCodeStr(n, names);
+                generatedShaderCode += generateNodeCodeStr(n, names);
                 //generateNodeCode(n, names, code);
             }
         }
 
+        displayShaderCode += generatedShaderCode;
+        shaderCode += generatedShaderCode;
+
         //for (const auto& e : code)
         //{
-        //    shaderCode += e.second;
+        //    displayShaderCode += e.second;
         //}
         shaderCode += "}\n";
+        displayShaderCode += "}\n";        
     }
 
     Node* FindNode(ed::NodeId id)
@@ -632,175 +803,6 @@ struct Example:
 
     
 #pragma region premadeNodes
-    Node* SpawnInputActionNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "InputAction Fire", ImColor(255, 128, 128));
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Delegate);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Pressed", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Released", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnBranchNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Branch");
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Condition", PinType::Bool);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "True", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "False", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnDoNNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Do N");
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Enter", PinType::Flow);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "N", PinType::Int);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Reset", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Exit", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Counter", PinType::Int);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnOutputActionNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "OutputAction");
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Sample", PinType::Float);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Condition", PinType::Bool);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Event", PinType::Delegate);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnPrintStringNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Print String");
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "In String", PinType::String);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnMessageNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "", ImColor(128, 195, 248));
-        m_Nodes.back().Type = NodeType::Simple;
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Message", PinType::String);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnSetTimerNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Set Timer", ImColor(128, 195, 248));
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Object", PinType::Object);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Function Name", PinType::Function);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Time", PinType::Float);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Looping", PinType::Bool);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnLessNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "<", ImColor(128, 195, 248));
-        m_Nodes.back().Type = NodeType::Simple;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Float);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Float);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnWeirdNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "o.O", ImColor(128, 195, 248));
-        m_Nodes.back().Type = NodeType::Simple;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Float);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnTraceByChannelNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Single Line Trace by Channel", ImColor(255, 128, 64));
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Start", PinType::Flow);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "End", PinType::Int);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Trace Channel", PinType::Float);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Trace Complex", PinType::Bool);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Actors to Ignore", PinType::Int);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Draw Debug Type", PinType::Bool);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "Ignore Self", PinType::Bool);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Out Hit", PinType::Float);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "Return Value", PinType::Bool);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnTreeSequenceNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Sequence");
-        m_Nodes.back().Type = NodeType::Tree;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnTreeTaskNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Move To");
-        m_Nodes.back().Type = NodeType::Tree;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnTreeTask2Node()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Random Wait");
-        m_Nodes.back().Type = NodeType::Tree;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
     Node* SpawnComment()
     {
         m_Nodes.emplace_back(GetNextId(), "Test Comment");
@@ -809,34 +811,9 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
-    Node* SpawnHoudiniTransformNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Transform");
-        m_Nodes.back().Type = NodeType::Houdini;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
-    Node* SpawnHoudiniGroupNode()
-    {
-        m_Nodes.emplace_back(GetNextId(), "Group");
-        m_Nodes.back().Type = NodeType::Houdini;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Flow);
-        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Flow);
-
-        BuildNode(&m_Nodes.back());
-
-        return &m_Nodes.back();
-    }
-
 #pragma endregion prebuiltNodes
 
+#pragma region shaderNodes
 
     //#TODO ADDING NEW NODES HERE
     
@@ -1237,6 +1214,25 @@ struct Example:
         return &m_Nodes.back();
     }
 
+    //fnSig vec2 position, int frequency, int octaveCount, float persistence, float lacunarity, uint seed
+    Node* spawnNoiseNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Perlin Noise");
+        m_Nodes.back().Type = NodeType::PerlinNoise;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "position", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "frequency", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "octaveCount", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "persostemce", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "lacunarity", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "seed", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "output", PinType::Float);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
     Node* spawnOutputNode()
     {
         {
@@ -1269,33 +1265,88 @@ struct Example:
         return &m_Nodes.back();
     }
 
-    Node* makeNewNode()
+    Node* makeNewNode(NodeType t)
     {
-        if (ImGui::MenuItem("Output"))
-            return spawnOutputNode();
-        if (ImGui::BeginMenu("Float Maths"))
+        switch (t)
         {
-            //if (ImGui::MenuItem("Constant"))
-            //    return spawnFloatAddNode();
-            if (ImGui::MenuItem("Add"))
-                return spawnFloatAddNode();
-            if (ImGui::MenuItem("Subtract"))
-                return spawnFloatSubtractNode();
-            if (ImGui::MenuItem("Multiply"))
-                return spawnFloatMultiplyNode();
-            if (ImGui::MenuItem("Divide"))
-                return spawnFloatDivideNode();
-            ImGui::EndPopup();
-        }
-        if (ImGui::MenuItem("Combine"))
-            return spawnCombineNode();
-        ImGui::Separator();
-        if (ImGui::MenuItem("Print String"))
-            return SpawnPrintStringNode();
-        if (ImGui::MenuItem("Comment"))
-            return SpawnComment();
-    }
+        case NodeType::FloatConstant:
+            return spawnFloatConstantNode();
+        case NodeType::FloatAdd:
+            return spawnFloatAddNode();
+        case NodeType::FloatSubtract:
+            return spawnFloatSubtractNode();
+        case NodeType::FloatMultiply:
+            return spawnFloatMultiplyNode();
+        case NodeType::FloatDivide:
+            return spawnFloatDivideNode();
+        case NodeType::FloatPow:
+            return spawnFloatPowNode();
+        case NodeType::FloatAbsolute:
+            return spawnFloatAbsNode();
+        case NodeType::Sign:
+            return spawnSignNode();
+        case NodeType::Floor:
+            return spawnFloorNode();
+        case NodeType::Ceil:
+            return spawnCeilNode();
+        case NodeType::Fract:
+            return spawnFractNode();
+        case NodeType::Mod:
+            return spawnModNode();
+        case NodeType::FloatMin:
+            return spawnFloatMinNode();
+        case NodeType::FloatMax:
+            return spawnFloatMaxNode();
+        case NodeType::Clamp:
+            return spawnClampNode();
+        case NodeType::Mix:
+            return spawnMixNode();
+            //Triganometry
+        case NodeType::Sin:
+            return spawnSineNode();
+        case NodeType::Cos:
+            return spawnCosineNode();
+        case NodeType::Tan:
+            return spawnTanNode();
+            //Vector
+            // causing errors with drawing nodes, will fix if have time
+            //case NodeType::VectorConstant:
+            //    code += "vec4 " + nodeVar + " = " + "vec4(" + std::to_string(node.value.x) + ", " + std::to_string(node.value.y) + ", " 
+            //        + std::to_string(node.value.z) + ", " + std::to_string(node.value.w) + ");\n";
+        case NodeType::VectorAdd:
+            return nullptr;
+        case NodeType::VectorSubtract:
+            return nullptr;
+        case NodeType::VectorMultiply:
+            return nullptr;
+        case NodeType::VectorDivide:
+            return nullptr;
+        case NodeType::Dot:
+            return spawnDotNode();
+        case NodeType::Cross:
+            return spawnCrossNode();
+        case NodeType::Length:
+            return spawnLengthNode();
+        case NodeType::Normalize:
+            return spawnNormaliseNode();
 
+            //Vector Utilities
+        case NodeType::Combine:
+            return spawnCombineNode();
+            //these nodes don't add any code, so we just stack them up here
+        case NodeType::Split:
+            return spawnSplitNode();
+        case NodeType::UV:
+            return spawnUVNode();
+
+            //float perlinNoise(vec2 position, int frequency, int octaveCount, float persistence, float lacunarity, uint seed)
+        case NodeType::PerlinNoise:
+            return spawnNoiseNode();
+        case NodeType::Output:
+            return spawnOutputNode();
+        }
+    }
+#pragma endregion shaderNodes
 
     void BuildNodes()
     {
@@ -1524,6 +1575,10 @@ struct Example:
         ImGui::Spring();
         if (ImGui::Button("Generate Shader"))
         {
+            for (auto i = 0; i < m_Nodes.size(); i++)
+            {
+                std::cout << m_Nodes[i].State;
+            }
             buildShader();
             std::cout << "compiling shader\n";
             if (program_one.isActive) 
@@ -1548,6 +1603,149 @@ struct Example:
             showStyleEditor = true;
         ImGui::EndHorizontal();
         ImGui::Checkbox("Show Ordinals", &m_ShowOrdinals);
+
+        //#TODO: Save/Load
+        if (ImGui::Button("Print state"))
+        {
+            for (auto& n : m_Nodes)
+            {
+                std::cout << n.State << "\n";
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Save"))
+        {
+            loading = false;
+            saving = true;
+        }
+        if (saving)
+        {
+            char fileName[512] = { '\0' };
+            
+            if (ImGui::InputText("save", &fileName[0], 512, ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                std::string file(fileName);
+                std::cout << "Saving to " << file << "\n";
+                /*for (uint64_t i = 0; i < m_NextId; i++)
+                {
+                    for (auto& n : m_Nodes)
+                    {
+                        if (static_cast<uint64_t>(n.ID.Get()) == i)
+                        {
+                            std::cout << i << ": Node " << n.Name << "\n";
+                        }
+                        else
+                        {
+                            for (auto& iPin : n.Inputs)
+                            {
+                                if (static_cast<uint64_t>(iPin.ID.Get()) == i)
+                                {
+                                    std::cout << i << ": InPin " << iPin.Name << "\n";
+                                }
+                            }
+
+                            for (auto& iPin : n.Outputs)
+                            {
+                                if (static_cast<uint64_t>(iPin.ID.Get()) == i)
+                                {
+                                    std::cout << i << ": OutPin " << iPin.Name << "\n";
+                                }
+                            }
+
+                        }
+                    }
+
+                    for (auto& l : m_Links)
+                    {
+                        if (static_cast<uint64_t>(l.ID.Get()) == i)
+                        {
+                            std::cout << i << ": Link\n";
+                        }
+                    }
+                }*/
+
+                //std::cout << "END OF IDS\n";
+                serialiseNodeTree();
+                std::string fp = file + ".json";
+                std::ofstream FILE(fp.c_str());
+                FILE << outputJson.dump(4) << std::endl;
+                
+                saving = false;
+            }
+            
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load"))
+        {
+            saving = false;
+            loading = true;
+        }
+        if (loading)
+        {
+            inputJson.clear();
+            char fileName[512]{ "\0" };
+            if (ImGui::InputText("load", &fileName[0], 512, ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                std::vector<Node> newNodes;
+                std::unordered_map<uint64_t, uint64_t> indexMap;
+                
+                
+                std::string file(fileName);
+
+                file += ".json";
+                std::cout << "Loading from " << file << "\n";
+                std::ifstream FILE(file.c_str());
+                if (!FILE) 
+                {
+                    std::cout << "Failed to load file";
+                    goto exitLoading;
+                }
+                
+                FILE >> inputJson;
+                
+                for (auto& i : inputJson["nodes"])
+                {
+                    Node* newNode;
+                    uint64_t idx = i.at("index").get<uint64_t>();
+                    NodeType type = (NodeType)i.at("type").get<uint64_t>();
+                    std::string userName = i.at("userName").get<std::string>();
+                    glm::vec4 value = {
+                        i.at("x").get<float>(),i.at("y").get<float>(),
+                        i.at("z").get<float>(),i.at("w").get<float>()
+                    };
+                    std::string state = i.at("state").get<std::string>();
+                    newNode = makeNewNode(type);
+                    indexMap[idx] = newNode->ID.Get();                    
+                    json jState = json::parse(state);
+                    ImVec2 nodePos = ImVec2(jState["location"]["x"], jState["location"]["y"]);
+                    ed::SetNodePosition(newNode->ID, nodePos);
+                    //ed::RestoreNodeState(newNode->ID);
+                    newNodes.push_back(*newNode);
+                }
+                for (auto& i : inputJson["links"])
+                {
+                    
+                    uint64_t startNodeIdx = i.at("startNodeIdx").get<uint64_t>();
+                    uint64_t startPinOffset = i.at("startPinOffset").get<uint64_t>();
+                    //use inputs as the output pins are generated after the input pins
+                    //however, we want the offset into the outputs, so we have to account for this
+                    startPinOffset -= newNodes[startNodeIdx].Inputs.size(); 
+                    uint64_t endNodeIdx = i.at("endNodeIdx").get<uint64_t>();
+                    uint64_t endPinOffset = i.at("endPinOffset").get<uint64_t>();
+                    ed::PinId startPin = newNodes[startNodeIdx].Outputs[startPinOffset -1].ID;
+                    ed::PinId endPin = newNodes[endNodeIdx].Inputs[endPinOffset -1].ID;
+                    m_Links.push_back(Link(GetNextLinkId(),
+                        startPin,
+                        endPin
+                    )
+                    );
+
+                }
+            exitLoading:
+
+                loading = false;
+            }
+        }
 
         if (showStyleEditor)
             ShowStyleEditor(&showStyleEditor);
@@ -1713,7 +1911,7 @@ struct Example:
 
         // added code here
         ImGui::Text("Generated Shader Code");
-        ImGui::InputTextMultiline("##Shader Output", &shaderCode[0], shaderCode.size(), ImVec2(500, 500), ImGuiInputTextFlags_ReadOnly);
+        ImGui::InputTextMultiline("##Shader Output", &displayShaderCode[0], displayShaderCode.size(), ImVec2(500, 500), ImGuiInputTextFlags_ReadOnly);
         //to here
         ImGui::EndChild();
     }
@@ -2613,10 +2811,11 @@ struct Example:
             //if (ImGui::MenuItem("Vector Constant"))
             //    node = spawnVec4ConstNode();
             ImGui::Separator();
-            if (ImGui::MenuItem("Print String"))
-                node = SpawnPrintStringNode();
             if (ImGui::MenuItem("Comment"))
                 node = SpawnComment();
+
+            if (ImGui::MenuItem("Noise"))
+                node = spawnNoiseNode();
             
 
             if (node)
@@ -2763,6 +2962,12 @@ struct Example:
 
     std::vector<Node> copiedNodes;
     std::vector<Link> copiedLinks;
+    json outputJson;
+    json inputJson;
+
+    bool saving = false;
+    bool loading = false;
+
 
 };
 

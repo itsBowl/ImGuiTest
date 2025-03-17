@@ -7,6 +7,8 @@ add_example_executable(blueprints-example
     Render.cpp
     Nodes.h
     FileManagement.h
+    ExtraShaderCode.h
+    nlohmann/json.hpp
     glm/glm.hpp
     glm/gtc/type_ptr.hpp
     glm/gtx/transform.hpp

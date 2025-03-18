@@ -563,12 +563,17 @@ struct Example:
         {
             nodeVar = "fragColour ";
         }
+        if (node.Type == NodeType::FloatConstant)
+        {
+            nodeVar = (std::to_string(node.value.x) + "f");
+        }
         variableNames[node.ID.Get()] = nodeVar;
 
         switch (node.Type)
         {
         case NodeType::FloatConstant:
             //since we know the value here is constant we can read it directly from the node and not worry about pin linking ;p
+            break;
             code = "float " + nodeVar + " = " + std::to_string(node.value.x) + "f;\n";
             break;
         case NodeType::FloatAdd:
@@ -643,6 +648,8 @@ struct Example:
         case NodeType::VectorDivide:
             code += "vec4 " + nodeVar + " = " + inVars[0] + " / " + inVars[1] + ";\n";
             break;
+        case NodeType::VectorAbs:
+            code += "vec4 " + nodeVar + " = abs(" + inVars[0] + ");\n";
         case NodeType::Dot:
             code += "float " + nodeVar + " = dot(", inVars[0] + ", " + inVars[1] + ");\n";
             break;
@@ -1214,6 +1221,69 @@ struct Example:
         return &m_Nodes.back();
     }
 
+    Node* spawnVec4AddNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Add");
+        m_Nodes.back().Type = NodeType::VectorAdd;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVec4SubtractNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Subtract");
+        m_Nodes.back().Type = NodeType::VectorSubtract;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVec4MultiplyNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Multiply");
+        m_Nodes.back().Type = NodeType::VectorMultiply;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVec4DivideNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Divide");
+        m_Nodes.back().Type = NodeType::VectorDivide;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnVec4AbsNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Absolute");
+        m_Nodes.back().Type = NodeType::VectorAbs;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        return &m_Nodes.back();
+    }
+
     //fnSig vec2 position, int frequency, int octaveCount, float persistence, float lacunarity, uint seed
     Node* spawnNoiseNode()
     {
@@ -1314,13 +1384,15 @@ struct Example:
             //    code += "vec4 " + nodeVar + " = " + "vec4(" + std::to_string(node.value.x) + ", " + std::to_string(node.value.y) + ", " 
             //        + std::to_string(node.value.z) + ", " + std::to_string(node.value.w) + ");\n";
         case NodeType::VectorAdd:
-            return nullptr;
+            return spawnVec4AddNode();;
         case NodeType::VectorSubtract:
-            return nullptr;
+            return spawnVec4SubtractNode();
         case NodeType::VectorMultiply:
-            return nullptr;
+            return spawnVec4MultiplyNode();
         case NodeType::VectorDivide:
-            return nullptr;
+            return spawnVec4DivideNode();
+        case NodeType::VectorAbs:
+            return spawnVec4AbsNode();
         case NodeType::Dot:
             return spawnDotNode();
         case NodeType::Cross:
@@ -1709,7 +1781,7 @@ struct Example:
                     uint64_t idx = i.at("index").get<uint64_t>();
                     NodeType type = (NodeType)i.at("type").get<uint64_t>();
                     std::string userName = i.at("userName").get<std::string>();
-                    glm::vec4 value = {
+                    ImVec4 value = {
                         i.at("x").get<float>(),i.at("y").get<float>(),
                         i.at("z").get<float>(),i.at("w").get<float>()
                     };
@@ -1719,6 +1791,7 @@ struct Example:
                     json jState = json::parse(state);
                     ImVec2 nodePos = ImVec2(jState["location"]["x"], jState["location"]["y"]);
                     ed::SetNodePosition(newNode->ID, nodePos);
+                    newNode->value = value;
                     //ed::RestoreNodeState(newNode->ID);
                     newNodes.push_back(*newNode);
                 }
@@ -2789,6 +2862,16 @@ struct Example:
 
             if (ImGui::BeginMenu("Vector Maths"))
             {
+                if (ImGui::MenuItem("Add"))
+                    node = spawnVec4AddNode();
+                if (ImGui::MenuItem("Subtract"))
+                    node = spawnVec4SubtractNode();
+                if (ImGui::MenuItem("Multiply"))
+                    node = spawnVec4MultiplyNode();
+                if (ImGui::MenuItem("Divide"))
+                    node = spawnVec4DivideNode();
+                if (ImGui::MenuItem("Absolute"))
+                    node = spawnVec4AbsNode();
                 if (ImGui::MenuItem("Dot Product"))
                     node = spawnDotNode();
                 if (ImGui::MenuItem("Cross Product"))

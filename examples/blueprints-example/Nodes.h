@@ -60,6 +60,7 @@ enum class NodeType
     VectorSubtract,
     VectorMultiply,
     VectorDivide,
+    VectorAbs,
     Dot,
     Cross,
     Length,

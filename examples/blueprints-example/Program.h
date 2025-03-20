@@ -22,6 +22,7 @@ namespace Render
 	public:
 
 		bool isActive = false;
+		std::string errLog = "";
 		bool updateShader(std::string);
 
 #pragma warning( suppress : 26495)
@@ -48,6 +49,12 @@ namespace Render
 			glUniform1i(uniformLocation, (GLint)value);
 		}
 
+		void setFloat(const std::string name, float value) const
+		{
+			GLuint location = glGetUniformLocation(id, name.c_str());
+			glUniform1f(location, value);
+		}
+
 		GLuint getID() { return id; }
 	private:
 		GLuint id = 0;
@@ -58,6 +65,7 @@ namespace Render
 
 		GLuint vertexID = 0;
 		GLuint fragmentID = 0;
+		
 
 		//const char* vertexShaderSource =
 		//	"#version 450 core\n"
@@ -74,10 +82,13 @@ namespace Render
 #version 450 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 uvMap;
+uniform float i_time;
 out vec2 vUV;
+out float time;
 void main()
 {
 	gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+	time = i_time;
 	vUV = uvMap;
 })SHADER";
 

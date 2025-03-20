@@ -60,7 +60,7 @@ enum class NodeType
     VectorSubtract,
     VectorMultiply,
     VectorDivide,
-    VectorAbs,
+    
     Dot,
     Cross,
     Length,
@@ -75,7 +75,8 @@ enum class NodeType
     //Input
     UV,
     //Output
-    Output
+    Output,
+    VectorAbs,
+    SimpleNoise,
+    Time
 };
-
-

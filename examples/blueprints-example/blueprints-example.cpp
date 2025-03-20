@@ -24,7 +24,7 @@
 #include "ExtraShaderCode.h"
 #include "nlohmann/json.hpp"
 #include <fstream>
-#include "crude_json.h"
+#include <algorithm>
 
 
 static inline ImRect ImGui_GetItemRect()
@@ -93,6 +93,7 @@ struct Node
     NodeType Type;
     bool isShader = false;
     ImVec2 Size;
+    int lineNumber = -1;
 
     ImVec4 value;
     uint64_t index;
@@ -215,21 +216,6 @@ struct Example:
         }
         return nullptr;
     }
-    /*
-    struct Node
-{
-    ed::NodeId ID;
-    std::string Name;
-    std::string userDefinedName = "";
-    std::vector<Pin> Inputs;
-    std::vector<Pin> Outputs;
-    ImColor Color;
-    NodeType Type;
-    bool isShader = false;
-    ImVec2 Size;
-
-    ImVec4 value;
-};*/
 
     void to_json(json& j, const std::vector<Node>& nodes)
     {
@@ -279,16 +265,6 @@ struct Example:
         j.at("state").get_to(n->SavedState);
     }
 
-    /*
-    struct Link
-
-    ed::LinkId ID;
-
-    ed::PinId StartPinID;
-    ed::PinId EndPinID;
-
-    ImColor Color;
-    */
     void to_json(json& j, const Link& l)
     {
         j = json{
@@ -310,7 +286,52 @@ struct Example:
         }
     }
     
+    void highlightLine(int ln)
+    {
+        int vecIndex;
+        for (size_t i = 0; i < codeAsLines.size(); i++)
+        {
+            if (i == codeAsLines.size() - 1) break;
+            if (i == ln)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 100, 255, 255));
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(255, 100, 255, 255));
+                ImGui::Text( "%i:   %s", i + 1, codeAsLines[i].c_str());
+                ImGui::PopStyleColor(2);
+                //ImGui::NewLine();
 
+            }
+            else
+            {
+                ImGui::Text("%i:    %s", i + 1, codeAsLines[i].c_str());
+            }
+        }
+    }
+
+    void highlightLineErr(int ln)
+    {
+        for (size_t i = 0; i < codeAsLines.size(); i++)
+        {
+            if (i == codeAsLines.size() - 1) break;
+            if (i == ln)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 10, 10, 255));
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(255, 100, 255, 255));
+                ImGui::Text("%i:\t\t%s", i + 1, codeAsLines[i].c_str());
+                ImGui::PopStyleColor(2);
+                for (auto& n : m_Nodes)
+                {
+                    if (n.lineNumber == ln)
+                        ed::SelectNode(n.ID);
+                }
+
+            }
+            else
+            {
+                ImGui::Text("%i:\t\t%s", i + 1, codeAsLines[i].c_str());
+            }
+        }
+    }
     void from_json(json& j, Link& l)
     {
         j.at("startNodeIdx").get_to(l.startNodeIdx);
@@ -563,9 +584,36 @@ struct Example:
         {
             nodeVar = "fragColour ";
         }
-        if (node.Type == NodeType::FloatConstant)
+        else if (node.Type == NodeType::Time)
         {
-            nodeVar = (std::to_string(node.value.x) + "f");
+            nodeVar = "time ";
+        }
+        else if (node.Type == NodeType::FloatConstant)
+        {
+
+            nodeVar = std::to_string(node.value.x - (long)node.value.x);
+            int sigFigs = 0;
+            int size = nodeVar.size();
+
+            for (auto i = size - 1; i > 0; i--)
+            {
+                char c = nodeVar[i];
+                nodeVar.pop_back();
+                int iC = c - '0';
+                if (iC != 0)
+                {
+                    if (i == 1)
+                    {
+                        sigFigs = i;
+                        break;
+                    }
+                    sigFigs = i - 1;
+                    break;
+                }
+            }
+
+            nodeVar = std::format("{:.{}f}f", node.value.x, sigFigs);
+            //std::cout << "Node :" << node.userDefinedName << " Value: " << nodeVar << "  " << sigFigs << "\n";
         }
         variableNames[node.ID.Get()] = nodeVar;
 
@@ -573,8 +621,6 @@ struct Example:
         {
         case NodeType::FloatConstant:
             //since we know the value here is constant we can read it directly from the node and not worry about pin linking ;p
-            break;
-            code = "float " + nodeVar + " = " + std::to_string(node.value.x) + "f;\n";
             break;
         case NodeType::FloatAdd:
             code += "float " + nodeVar + " = " + inVars[0] + " + " + inVars[1] + ";\n";
@@ -670,6 +716,7 @@ struct Example:
         //these nodes don't add any code, so we just stack them up here
         case NodeType::Split:
         case NodeType::UV:
+        case NodeType::Time:
             break;
 
         //float perlinNoise(vec2 position, int frequency, int octaveCount, float persistence, float lacunarity, uint seed)
@@ -679,8 +726,27 @@ struct Example:
                 ", " + inVars[4] + ", " + inVars[5] + ");\n";
                 break;
         case NodeType::Output:
-            code += nodeVar + " = " + inVars[1] + ";\n";
+            code += nodeVar + " = vec4(" + inVars[1] + ");\n";
+            break;
+        case NodeType::SimpleNoise:
+            code += "float " + nodeVar + " = simpleNoise(vec2(" + inVars[0] + "), "
+                + inVars[1] + ", " + inVars[2] +", " + inVars[3] + "); \n";
+            break;
         }
+
+        if (node.Type == NodeType::UV)
+        {
+            node.lineNumber = 1;
+        }
+        else if (node.Type == NodeType::FloatConstant || node.Type == NodeType::Time)
+        {
+        }
+        else
+        {
+            node.lineNumber = currentLineNumber;
+            currentLineNumber++;
+        }
+        
 
         //generated[node.ID.Get()] = code;
 
@@ -689,23 +755,26 @@ struct Example:
 
     void buildShader()
     {
+        currentLineNumber = 5;
+        codeAsLines.clear();
         displayShaderCode.clear();
         shaderCode.clear();
         std::unordered_map<uint64_t, std::string> names;
         std::unordered_map<uint64_t, std::string> code;
-        shaderCode = "#version 450 core\nin vec2 vUV;\nlayout (location = 0) out vec4 fragColour;";
+        shaderCode = "#version 450 core\nin vec2 vUV;\nin float time;\nlayout (location = 0) out vec4 fragColour;";
         shaderCode += perlinShaderCode;
             
         shaderCode += "\n\nvoid main() {\n";
-        displayShaderCode = "#version 450 core\nin vec2 vUV;\nlayout (location = 0) out vec4 fragColour;\n\nvoid main() {\n";
+        displayShaderCode = "#version 450 core\nin vec2 vUV;\nin float time;\nlayout (location = 0) out vec4 fragColour;\n\nvoid main() {\n";
         std::string generatedShaderCode = "";
 
-        for (auto n : m_Nodes)
+        for (auto& n : m_Nodes)
         {
             if (n.Type == NodeType::Output)
             {
                 generatedShaderCode += generateNodeCodeStr(n, names);
                 //generateNodeCode(n, names, code);
+                break;
             }
         }
 
@@ -717,7 +786,15 @@ struct Example:
         //    displayShaderCode += e.second;
         //}
         shaderCode += "}\n";
-        displayShaderCode += "}\n";        
+        displayShaderCode += "}\n";
+        std::string delim = "\n";
+        std::string::size_type pos = 0, prev = 0;
+        while ((pos = displayShaderCode.find(delim, prev)) != std::string::npos)
+        {
+            codeAsLines.push_back(displayShaderCode.substr(prev, pos - prev));
+            prev = pos + delim.size();
+        }
+        codeAsLines.push_back(displayShaderCode.substr(prev));
     }
 
     Node* FindNode(ed::NodeId id)
@@ -823,8 +900,6 @@ struct Example:
 #pragma region shaderNodes
 
     //#TODO ADDING NEW NODES HERE
-    
-
     //Float nodes
     Node* spawnFloatConstantNode()
     {
@@ -838,7 +913,6 @@ struct Example:
         return &m_Nodes.back();
 
     }
-
     Node* spawnFloatAddNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Add");
@@ -891,7 +965,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnFloatPowNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Power");
@@ -905,7 +978,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnFloatAbsNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Absolute");
@@ -918,7 +990,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVectorAbsNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Absolute");
@@ -931,7 +1002,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnSignNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Sign");
@@ -944,7 +1014,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnFloorNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Floor");
@@ -957,7 +1026,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnCeilNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Ceil");
@@ -970,7 +1038,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnFractNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Fract");
@@ -983,7 +1050,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnModNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Modulus");
@@ -997,7 +1063,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnFloatMinNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Min");
@@ -1011,7 +1076,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVectorMinNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Min");
@@ -1025,7 +1089,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnFloatMaxNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Max");
@@ -1039,7 +1102,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVectorMaxNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Max");
@@ -1053,7 +1115,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnClampNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Clamp");
@@ -1069,7 +1130,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnMixNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Mix");
@@ -1082,7 +1142,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnSineNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Sine");
@@ -1095,7 +1154,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnCosineNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Cosine");
@@ -1108,7 +1166,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnTanNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Tan");
@@ -1121,12 +1178,7 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
-   
-
-
     // Vector nodes
-
     Node* spawnDotNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Dot Product");
@@ -1139,7 +1191,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnCrossNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Cross Product");
@@ -1152,7 +1203,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnLengthNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Length");
@@ -1164,7 +1214,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnNormaliseNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Normalise");
@@ -1176,7 +1225,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnCombineNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Combine");
@@ -1192,7 +1240,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnSplitNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Split");
@@ -1208,7 +1255,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVec4ConstNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Constant");
@@ -1220,7 +1266,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVec4AddNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Add");
@@ -1233,7 +1278,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVec4SubtractNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Subtract");
@@ -1246,7 +1290,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVec4MultiplyNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Multiply");
@@ -1259,7 +1302,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVec4DivideNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Divide");
@@ -1272,7 +1314,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     Node* spawnVec4AbsNode()
     {
         m_Nodes.emplace_back(GetNextId(), "Absolute");
@@ -1283,7 +1324,6 @@ struct Example:
 
         return &m_Nodes.back();
     }
-
     //fnSig vec2 position, int frequency, int octaveCount, float persistence, float lacunarity, uint seed
     Node* spawnNoiseNode()
     {
@@ -1302,7 +1342,21 @@ struct Example:
 
         return &m_Nodes.back();
     }
+    Node* spawnSimpleNoiseNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Perlin Noise");
+        m_Nodes.back().Type = NodeType::SimpleNoise;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "position", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "frequency", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "octaveCount", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "seed", PinType::Float);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "output", PinType::Float);
 
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
     Node* spawnOutputNode()
     {
         {
@@ -1318,17 +1372,23 @@ struct Example:
             return &m_Nodes.back();
         }
     }
+    Node* spawnTimeNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "time");
+        m_Nodes.back().Type = NodeType::Time;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "time", PinType::Float);
 
+        return &m_Nodes.back();
+    }
     Node* spawnUVNode()
     {
         m_Nodes.emplace_back(GetNextId(), "UV");
         m_Nodes.back().Type = NodeType::UV;
         m_Nodes.back().isShader = true;
-        //m_Nodes.back().Inputs.emplace_back(GetNextId(), "x", PinType::Float);
-        //m_Nodes.back().Inputs.emplace_back(GetNextId(), "y", PinType::Float);
-        //m_Nodes.back().Inputs.emplace_back(GetNextId(), "z", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "x", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "y", PinType::Float);
+        m_Nodes.back().lineNumber = 1;
 
         BuildNode(&m_Nodes.back());
 
@@ -1416,6 +1476,10 @@ struct Example:
             return spawnNoiseNode();
         case NodeType::Output:
             return spawnOutputNode();
+        case NodeType::SimpleNoise:
+            return spawnSimpleNoiseNode();
+        case NodeType::Time:
+            return spawnTimeNode();
         }
     }
 #pragma endregion shaderNodes
@@ -1521,6 +1585,7 @@ struct Example:
             case PinType::Object:   return ImColor( 51, 150, 215);
             case PinType::Function: return ImColor(218,   0, 183);
             case PinType::Delegate: return ImColor(255,  48,  48);
+            case PinType::Vector4:  return ImColor(77, 77, 225);
         }
     };
 
@@ -1539,6 +1604,7 @@ struct Example:
             case PinType::Object:   iconType = IconType::Circle; break;
             case PinType::Function: iconType = IconType::Circle; break;
             case PinType::Delegate: iconType = IconType::Square; break;
+            case PinType::Vector4:  iconType = IconType::RoundSquare; break;
             default:
                 return;
         }
@@ -1631,13 +1697,13 @@ struct Example:
 
         ImGui::BeginChild("Selection", ImVec2(paneWidth, 0));
 
+
         paneWidth = ImGui::GetContentRegionAvail().x;
 
         static bool showStyleEditor = false;
         ImGui::BeginHorizontal("Style Editor", ImVec2(paneWidth, 0));
         ImGui::Spring(0.0f, 0.0f);
-        if (ImGui::Button("Zoom to Content"))
-            ed::NavigateToContent();
+        
         ImGui::Spring(0.0f);
         if (ImGui::Button("Show Flow"))
         {
@@ -1647,10 +1713,6 @@ struct Example:
         ImGui::Spring();
         if (ImGui::Button("Generate Shader"))
         {
-            for (auto i = 0; i < m_Nodes.size(); i++)
-            {
-                std::cout << m_Nodes[i].State;
-            }
             buildShader();
             std::cout << "compiling shader\n";
             if (program_one.isActive) 
@@ -1670,6 +1732,9 @@ struct Example:
                 }
             }
         }
+
+        if (ImGui::Button("Zoom to Content"))
+            ed::NavigateToContent();
         ImGui::Spring();
         if (ImGui::Button("Edit Style"))
             showStyleEditor = true;
@@ -1698,45 +1763,6 @@ struct Example:
             {
                 std::string file(fileName);
                 std::cout << "Saving to " << file << "\n";
-                /*for (uint64_t i = 0; i < m_NextId; i++)
-                {
-                    for (auto& n : m_Nodes)
-                    {
-                        if (static_cast<uint64_t>(n.ID.Get()) == i)
-                        {
-                            std::cout << i << ": Node " << n.Name << "\n";
-                        }
-                        else
-                        {
-                            for (auto& iPin : n.Inputs)
-                            {
-                                if (static_cast<uint64_t>(iPin.ID.Get()) == i)
-                                {
-                                    std::cout << i << ": InPin " << iPin.Name << "\n";
-                                }
-                            }
-
-                            for (auto& iPin : n.Outputs)
-                            {
-                                if (static_cast<uint64_t>(iPin.ID.Get()) == i)
-                                {
-                                    std::cout << i << ": OutPin " << iPin.Name << "\n";
-                                }
-                            }
-
-                        }
-                    }
-
-                    for (auto& l : m_Links)
-                    {
-                        if (static_cast<uint64_t>(l.ID.Get()) == i)
-                        {
-                            std::cout << i << ": Link\n";
-                        }
-                    }
-                }*/
-
-                //std::cout << "END OF IDS\n";
                 serialiseNodeTree();
                 std::string fp = file + ".json";
                 std::ofstream FILE(fp.c_str());
@@ -1754,6 +1780,9 @@ struct Example:
         }
         if (loading)
         {
+            m_Nodes.clear();
+            m_Links.clear();
+            m_NextId = 1;
             inputJson.clear();
             char fileName[512]{ "\0" };
             if (ImGui::InputText("load", &fileName[0], 512, ImGuiInputTextFlags_EnterReturnsTrue))
@@ -1812,6 +1841,8 @@ struct Example:
                         endPin
                     )
                     );
+                    Node* n = FindNode(newNodes[startNodeIdx].ID);
+                    m_Links.back().Color = GetIconColor(n->Outputs[startPinOffset - 1].Type);
 
                 }
             exitLoading:
@@ -1819,6 +1850,13 @@ struct Example:
                 loading = false;
             }
         }
+#ifndef _NDEBUG
+        if (ImGui::Button("Item Picker"))
+        {
+            ImGui::DebugStartItemPicker();
+        }
+#endif
+
 
         if (showStyleEditor)
             ShowStyleEditor(&showStyleEditor);
@@ -1846,130 +1884,131 @@ struct Example:
         ImGui::Spacing(); ImGui::SameLine();
         if (0)
         {
-        ImGui::TextUnformatted("Nodes");
-        ImGui::Indent();
-        for (auto& node : m_Nodes)
-        {
-            ImGui::PushID(node.ID.AsPointer());
-            auto start = ImGui::GetCursorScreenPos();
-
-            if (const auto progress = GetTouchProgress(node.ID))
+            ImGui::TextUnformatted("Nodes");
+            ImGui::Indent();
+            for (auto& node : m_Nodes)
             {
-                ImGui::GetWindowDrawList()->AddLine(
-                    start + ImVec2(-8, 0),
-                    start + ImVec2(-8, ImGui::GetTextLineHeight()),
-                    IM_COL32(255, 0, 0, 255 - (int)(255 * progress)), 4.0f);
-            }
+                ImGui::PushID(node.ID.AsPointer());
+                auto start = ImGui::GetCursorScreenPos();
 
-            bool isSelected = std::find(selectedNodes.begin(), selectedNodes.end(), node.ID) != selectedNodes.end();
+                if (const auto progress = GetTouchProgress(node.ID))
+                {
+                    ImGui::GetWindowDrawList()->AddLine(
+                        start + ImVec2(-8, 0),
+                        start + ImVec2(-8, ImGui::GetTextLineHeight()),
+                        IM_COL32(255, 0, 0, 255 - (int)(255 * progress)), 4.0f);
+                }
+
+                bool isSelected = std::find(selectedNodes.begin(), selectedNodes.end(), node.ID) != selectedNodes.end();
 # if IMGUI_VERSION_NUM >= 18967
-            ImGui::SetNextItemAllowOverlap();
+                ImGui::SetNextItemAllowOverlap();
 # endif
-            if (ImGui::Selectable((node.Name + "##" + std::to_string(reinterpret_cast<uintptr_t>(node.ID.AsPointer()))).c_str(), &isSelected))
-            {
-                if (io.KeyCtrl)
+                if (ImGui::Selectable((node.Name + "##" + std::to_string(reinterpret_cast<uintptr_t>(node.ID.AsPointer()))).c_str(), &isSelected))
                 {
-                    if (isSelected)
-                        ed::SelectNode(node.ID, true);
+                    if (io.KeyCtrl)
+                    {
+                        if (isSelected)
+                            ed::SelectNode(node.ID, true);
+                        else
+                            ed::DeselectNode(node.ID);
+                    }
                     else
-                        ed::DeselectNode(node.ID);
+                        ed::SelectNode(node.ID, false);
+
+                    ed::NavigateToSelection();
                 }
-                else
-                    ed::SelectNode(node.ID, false);
+                if (ImGui::IsItemHovered() && !node.State.empty())
+                    ImGui::SetTooltip("State: %s", node.State.c_str());
 
-                ed::NavigateToSelection();
-            }
-            if (ImGui::IsItemHovered() && !node.State.empty())
-                ImGui::SetTooltip("State: %s", node.State.c_str());
+                auto id = std::string("(") + std::to_string(reinterpret_cast<uintptr_t>(node.ID.AsPointer())) + ")";
+                auto textSize = ImGui::CalcTextSize(id.c_str(), nullptr);
+                auto iconPanelPos = start + ImVec2(
+                    paneWidth - ImGui::GetStyle().FramePadding.x - ImGui::GetStyle().IndentSpacing - saveIconWidth - restoreIconWidth - ImGui::GetStyle().ItemInnerSpacing.x * 1,
+                    (ImGui::GetTextLineHeight() - saveIconHeight) / 2);
+                ImGui::GetWindowDrawList()->AddText(
+                    ImVec2(iconPanelPos.x - textSize.x - ImGui::GetStyle().ItemInnerSpacing.x, start.y),
+                    IM_COL32(255, 255, 255, 255), id.c_str(), nullptr);
 
-            auto id = std::string("(") + std::to_string(reinterpret_cast<uintptr_t>(node.ID.AsPointer())) + ")";
-            auto textSize = ImGui::CalcTextSize(id.c_str(), nullptr);
-            auto iconPanelPos = start + ImVec2(
-                paneWidth - ImGui::GetStyle().FramePadding.x - ImGui::GetStyle().IndentSpacing - saveIconWidth - restoreIconWidth - ImGui::GetStyle().ItemInnerSpacing.x * 1,
-                (ImGui::GetTextLineHeight() - saveIconHeight) / 2);
-            ImGui::GetWindowDrawList()->AddText(
-                ImVec2(iconPanelPos.x - textSize.x - ImGui::GetStyle().ItemInnerSpacing.x, start.y),
-                IM_COL32(255, 255, 255, 255), id.c_str(), nullptr);
-
-            auto drawList = ImGui::GetWindowDrawList();
-            ImGui::SetCursorScreenPos(iconPanelPos);
+                auto drawList = ImGui::GetWindowDrawList();
+                ImGui::SetCursorScreenPos(iconPanelPos);
 # if IMGUI_VERSION_NUM < 18967
-            ImGui::SetItemAllowOverlap();
+                ImGui::SetItemAllowOverlap();
 # else
-            ImGui::SetNextItemAllowOverlap();
+                ImGui::SetNextItemAllowOverlap();
 # endif
-            if (node.SavedState.empty())
-            {
-                if (ImGui::InvisibleButton("save", ImVec2((float)saveIconWidth, (float)saveIconHeight)))
-                    node.SavedState = node.State;
-
-                if (ImGui::IsItemActive())
-                    drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
-                else if (ImGui::IsItemHovered())
-                    drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
-                else
-                    drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
-            }
-            else
-            {
-                ImGui::Dummy(ImVec2((float)saveIconWidth, (float)saveIconHeight));
-                drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
-            }
-
-            ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
-# if IMGUI_VERSION_NUM < 18967
-            ImGui::SetItemAllowOverlap();
-# else
-            ImGui::SetNextItemAllowOverlap();
-# endif
-            if (!node.SavedState.empty())
-            {
-                if (ImGui::InvisibleButton("restore", ImVec2((float)restoreIconWidth, (float)restoreIconHeight)))
+                if (node.SavedState.empty())
                 {
-                    node.State = node.SavedState;
-                    ed::RestoreNodeState(node.ID);
-                    node.SavedState.clear();
+                    if (ImGui::InvisibleButton("save", ImVec2((float)saveIconWidth, (float)saveIconHeight)))
+                        node.SavedState = node.State;
+
+                    if (ImGui::IsItemActive())
+                        drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
+                    else if (ImGui::IsItemHovered())
+                        drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
+                    else
+                        drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
+                }
+                else
+                {
+                    ImGui::Dummy(ImVec2((float)saveIconWidth, (float)saveIconHeight));
+                    drawList->AddImage(m_SaveIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
                 }
 
-                if (ImGui::IsItemActive())
-                    drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
-                else if (ImGui::IsItemHovered())
-                    drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
-                else
-                    drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
-            }
-            else
-            {
-                ImGui::Dummy(ImVec2((float)restoreIconWidth, (float)restoreIconHeight));
-                drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
-            }
-
-            ImGui::SameLine(0, 0);
+                ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
 # if IMGUI_VERSION_NUM < 18967
-            ImGui::SetItemAllowOverlap();
+                ImGui::SetItemAllowOverlap();
+# else
+                ImGui::SetNextItemAllowOverlap();
 # endif
-            ImGui::Dummy(ImVec2(0, (float)restoreIconHeight));
+                if (!node.SavedState.empty())
+                {
+                    if (ImGui::InvisibleButton("restore", ImVec2((float)restoreIconWidth, (float)restoreIconHeight)))
+                    {
+                        node.State = node.SavedState;
+                        ed::RestoreNodeState(node.ID);
+                        node.SavedState.clear();
+                    }
 
-            ImGui::PopID();
+                    if (ImGui::IsItemActive())
+                        drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 96));
+                    else if (ImGui::IsItemHovered())
+                        drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255));
+                    else
+                        drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 160));
+                }
+                else
+                {
+                    ImGui::Dummy(ImVec2((float)restoreIconWidth, (float)restoreIconHeight));
+                    drawList->AddImage(m_RestoreIcon, ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 32));
+                }
+
+                ImGui::SameLine(0, 0);
+# if IMGUI_VERSION_NUM < 18967
+                ImGui::SetItemAllowOverlap();
+# endif
+                ImGui::Dummy(ImVec2(0, (float)restoreIconHeight));
+
+                ImGui::PopID();
             }
-        ImGui::Unindent();
-        }
+            ImGui::Unindent();
 
-        static int changeCount = 0;
 
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            ImGui::GetCursorScreenPos(),
-            ImGui::GetCursorScreenPos() + ImVec2(paneWidth, ImGui::GetTextLineHeight()),
-            ImColor(ImGui::GetStyle().Colors[ImGuiCol_HeaderActive]), ImGui::GetTextLineHeight() * 0.25f);
-        ImGui::Spacing(); ImGui::SameLine();
-        ImGui::TextUnformatted("Selection");
+            static int changeCount = 0;
 
-        ImGui::BeginHorizontal("Selection Stats", ImVec2(paneWidth, 0));
-        ImGui::Text("Changed %d time%s", changeCount, changeCount > 1 ? "s" : "");
-        ImGui::Spring();
-        if (ImGui::Button("Deselect All"))
-            ed::ClearSelection();
-        ImGui::EndHorizontal();
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                ImGui::GetCursorScreenPos(),
+                ImGui::GetCursorScreenPos() + ImVec2(paneWidth, ImGui::GetTextLineHeight()),
+                ImColor(ImGui::GetStyle().Colors[ImGuiCol_HeaderActive]), ImGui::GetTextLineHeight() * 0.25f);
+            ImGui::Spacing(); ImGui::SameLine();
+            ImGui::TextUnformatted("Selection");
+            
+            ImGui::BeginHorizontal("Selection Stats", ImVec2(paneWidth, 0));
+            ImGui::Text("Changed %d time%s", changeCount, changeCount > 1 ? "s" : "");
+            ImGui::Spring();
+            if (ImGui::Button("Deselect All"))
+                ed::ClearSelection();
+            ImGui::EndHorizontal();
+        
         ImGui::Indent();
         for (int i = 0; i < nodeCount; ++i) ImGui::Text("Node (%p)", selectedNodes[i].AsPointer());
         for (int i = 0; i < linkCount; ++i) ImGui::Text("Link (%p)", selectedLinks[i].AsPointer());
@@ -1981,10 +2020,51 @@ struct Example:
 
         if (ed::HasSelectionChanged())
             ++changeCount;
+        }
 
         // added code here
         ImGui::Text("Generated Shader Code");
-        ImGui::InputTextMultiline("##Shader Output", &displayShaderCode[0], displayShaderCode.size(), ImVec2(500, 500), ImGuiInputTextFlags_ReadOnly);
+        {
+            Render::Program* activeShader = nullptr;
+            if (!program_one.isActive) activeShader = &program_one;
+            else if (!program_two.isActive) activeShader = &program_two;
+            if (codeAsLines.size() > 0)
+            {
+                std::vector<ed::NodeId> selected;
+                selected.resize(ed::GetSelectedObjectCount());
+                int nodeCount = ed::GetSelectedNodes(selected.data(), static_cast<int>(selected.size()));
+                if (selected.size() > 0)
+                {
+                    ed::NodeId id = selected[0];
+                    Node* n = FindNode(id);
+                    if (n && (n->lineNumber != -1)) highlightLine(n->lineNumber);
+                    //else { highlightLine(5); }
+                }
+                else if (activeShader && !activeShader->errLog.empty())
+                {
+                    //Error compiling shader: 0(111) : 
+                    size_t pos = activeShader->errLog.find("0(");
+                    size_t ePos = activeShader->errLog.find(") :");
+                    std::string errLn = "";
+                    pos += 2;
+                    for (auto& i = pos; i < ePos; i++)
+                    {
+                        errLn += activeShader->errLog[i];
+                    }
+                    //std::cout << errLn << "\n";
+                    size_t process = 0;
+                    int ln = std::stoi(errLn, &process, 10);
+                    highlightLineErr(ln - 104);
+                }
+                else
+                {
+                    highlightLine(-1);
+                }
+            }
+
+
+        }
+        //ImGui::InputTextMultiline("##Shader Output", &displayShaderCode[0], displayShaderCode.size(), ImVec2(500, 500), ImGuiInputTextFlags_ReadOnly);
         //to here
         ImGui::EndChild();
     }
@@ -2022,7 +2102,7 @@ struct Example:
         static Pin* newNodeLinkPin = nullptr;
         static Pin* newLinkPin     = nullptr;
 
-        static float leftPaneWidth  = 400.0f;
+        static float leftPaneWidth  = 450.0f;
         static float rightPaneWidth = 800.0f;
         Splitter(true, 4.0f, &leftPaneWidth, &rightPaneWidth, 50.0f, 50.0f);
 
@@ -2559,34 +2639,34 @@ struct Example:
                 if (ed::BeginGroupHint(node.ID))
                 {
                     //auto alpha   = static_cast<int>(commentAlpha * ImGui::GetStyle().Alpha * 255);
-                    auto bgAlpha = static_cast<int>(ImGui::GetStyle().Alpha * 255);
+auto bgAlpha = static_cast<int>(ImGui::GetStyle().Alpha * 255);
 
-                    //ImGui::PushStyleVar(ImGuiStyleVar_Alpha, commentAlpha * ImGui::GetStyle().Alpha);
+//ImGui::PushStyleVar(ImGuiStyleVar_Alpha, commentAlpha * ImGui::GetStyle().Alpha);
 
-                    auto min = ed::GetGroupMin();
-                    //auto max = ed::GetGroupMax();
+auto min = ed::GetGroupMin();
+//auto max = ed::GetGroupMax();
 
-                    ImGui::SetCursorScreenPos(min - ImVec2(-8, ImGui::GetTextLineHeightWithSpacing() + 4));
-                    ImGui::BeginGroup();
-                    ImGui::TextUnformatted(node.Name.c_str());
-                    ImGui::EndGroup();
+ImGui::SetCursorScreenPos(min - ImVec2(-8, ImGui::GetTextLineHeightWithSpacing() + 4));
+ImGui::BeginGroup();
+ImGui::TextUnformatted(node.Name.c_str());
+ImGui::EndGroup();
 
-                    auto drawList = ed::GetHintBackgroundDrawList();
+auto drawList = ed::GetHintBackgroundDrawList();
 
-                    auto hintBounds      = ImGui_GetItemRect();
-                    auto hintFrameBounds = ImRect_Expanded(hintBounds, 8, 4);
+auto hintBounds = ImGui_GetItemRect();
+auto hintFrameBounds = ImRect_Expanded(hintBounds, 8, 4);
 
-                    drawList->AddRectFilled(
-                        hintFrameBounds.GetTL(),
-                        hintFrameBounds.GetBR(),
-                        IM_COL32(255, 255, 255, 64 * bgAlpha / 255), 4.0f);
+drawList->AddRectFilled(
+    hintFrameBounds.GetTL(),
+    hintFrameBounds.GetBR(),
+    IM_COL32(255, 255, 255, 64 * bgAlpha / 255), 4.0f);
 
-                    drawList->AddRect(
-                        hintFrameBounds.GetTL(),
-                        hintFrameBounds.GetBR(),
-                        IM_COL32(255, 255, 255, 128 * bgAlpha / 255), 4.0f);
+drawList->AddRect(
+    hintFrameBounds.GetTL(),
+    hintFrameBounds.GetBR(),
+    IM_COL32(255, 255, 255, 128 * bgAlpha / 255), 4.0f);
 
-                    //ImGui::PopStyleVar();
+//ImGui::PopStyleVar();
                 }
                 ed::EndGroupHint();
             }
@@ -2620,7 +2700,7 @@ struct Example:
                     if (ed::QueryNewLink(&startPinId, &endPinId))
                     {
                         auto startPin = FindPin(startPinId);
-                        auto endPin   = FindPin(endPinId);
+                        auto endPin = FindPin(endPinId);
 
                         newLinkPin = startPin ? startPin : endPin;
 
@@ -2641,19 +2721,29 @@ struct Example:
                                 showLabel("x Incompatible Pin Kind", ImColor(45, 32, 32, 180));
                                 ed::RejectNewItem(ImColor(255, 0, 0), 2.0f);
                             }
-                            //else if (endPin->Node == startPin->Node)
-                            //{
-                            //    showLabel("x Cannot connect to self", ImColor(45, 32, 32, 180));
-                            //    ed::RejectNewItem(ImColor(255, 0, 0), 1.0f);
-                            //}
-                            else if (endPin->Type != startPin->Type)
+                            else if (endPin->Node == startPin->Node)
                             {
-                                showLabel("x Incompatible Pin Type", ImColor(45, 32, 32, 180));
-                                ed::RejectNewItem(ImColor(255, 128, 128), 1.0f);
+                                showLabel("x Cannot connect to self", ImColor(45, 32, 32, 180));
+                                ed::RejectNewItem(ImColor(255, 0, 0), 1.0f);
                             }
+                            //else if (endPin->Type != startPin->Type)
+                            //{
+                            //    showLabel("x Incompatible Pin Type", ImColor(45, 32, 32, 180));
+                            //    ed::RejectNewItem(ImColor(255, 128, 128), 1.0f);
+                            //}
                             else
                             {
                                 showLabel("+ Create Link", ImColor(32, 45, 32, 180));
+                                //custom link checking code to disallow multiple end pins)
+                                for (auto it = m_Links.begin(); it != m_Links.end(); it++)
+                                {
+                                    Link l = *it;
+                                    if (l.EndPinID == endPin->ID)
+                                    {
+                                        m_Links.erase(it);
+                                        break;
+                                    }
+                                }
                                 if (ed::AcceptNewItem(ImColor(128, 255, 128), 4.0f))
                                 {
                                     m_Links.emplace_back(Link(GetNextId(), startPinId, endPinId));
@@ -2896,9 +2986,12 @@ struct Example:
             ImGui::Separator();
             if (ImGui::MenuItem("Comment"))
                 node = SpawnComment();
-
-            if (ImGui::MenuItem("Noise"))
+            if (ImGui::MenuItem("Simple Noise"))
+                node = spawnSimpleNoiseNode();
+            if (ImGui::MenuItem("Perlin Noise"))
                 node = spawnNoiseNode();
+            if (ImGui::MenuItem("Time"))
+                node = spawnTimeNode();
             
 
             if (node)
@@ -2969,6 +3062,9 @@ struct Example:
 
         
 
+        
+        
+        float time = (float)ImGui::GetTime();
         if (m_ShowOrdinals)
         {
             int nodeCount = ed::GetNodeCount();
@@ -3005,13 +3101,19 @@ struct Example:
 
             drawList->PopClipRect();
         }
+
+        //std::cout << time << "\n";
         //we do all the rendering of the shader at the end of the program
         if (program_one.isActive)
         {
+            program_one.use();
+            program_one.setFloat("i_time", time);
             Render::testRender(&program_one);
         }
         else if (program_two.isActive)
         {
+            program_two.use();
+            program_two.setFloat("i_time", time);
             Render::testRender(&program_two);
         }
         else
@@ -3042,6 +3144,8 @@ struct Example:
     int                  sdl_height = 480;
     Render::Program      program_one;
     Render::Program      program_two;
+    std::vector<std::string> codeAsLines;
+    int currentLineNumber = 5;
 
     std::vector<Node> copiedNodes;
     std::vector<Link> copiedLinks;

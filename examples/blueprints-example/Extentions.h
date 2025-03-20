@@ -29,4 +29,3 @@ SDL_Window* makeSDLWindow(int width = 640, int height = 480)
     SDL_GL_SetSwapInterval(0);
     return window;
 }
-

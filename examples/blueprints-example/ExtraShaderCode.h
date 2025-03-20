@@ -97,5 +97,12 @@ float perlinNoise(vec2 position, float frequency, float octaves, float persisten
     }
     return value;
 }
+
+float simpleNoise(vec2 position, float frequency, float octaves, float s)
+{
+    return perlinNoise(position, frequency, octaves, 1.0f, 0.5f, s);
+}
 )SHADER";
+
+//104 lines in extra shader code
 

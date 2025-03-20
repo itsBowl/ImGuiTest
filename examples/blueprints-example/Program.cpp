@@ -157,6 +157,7 @@ namespace Render
 					std::vector<char> shaderError(logLength);
 					glGetShaderInfoLog(shader, logLength, nullptr, shaderError.data());
 					std::cout << std::format("Error compiling shader: {}\n", shaderError.data());
+					errLog = std::string(shaderError.data()) + "\n";
 				}
 			}
 			else

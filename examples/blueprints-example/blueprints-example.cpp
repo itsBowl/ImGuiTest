@@ -1764,7 +1764,7 @@ struct Example:
                 std::string file(fileName);
                 std::cout << "Saving to " << file << "\n";
                 serialiseNodeTree();
-                std::string fp = file + ".json";
+                std::string fp = file + ".shader";
                 std::ofstream FILE(fp.c_str());
                 FILE << outputJson.dump(4) << std::endl;
                 
@@ -1793,7 +1793,7 @@ struct Example:
                 
                 std::string file(fileName);
 
-                file += ".json";
+                file += ".shader";
                 std::cout << "Loading from " << file << "\n";
                 std::ifstream FILE(file.c_str());
                 if (!FILE) 

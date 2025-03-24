@@ -288,7 +288,6 @@ struct Example:
     
     void displayCode(int ln, ImVec4 col = ImVec4(1, 1, 1, 1))
     {
-        int vecIndex;
         for (size_t i = 0; i < codeAsLines.size(); i++)
         {
             if (i == codeAsLines.size() - 1) break;
@@ -327,7 +326,34 @@ struct Example:
         ImGui::TextUnformatted(getNodeTooltip(n).c_str());
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
-        
+    }
+
+    void displayCode(std::vector<int> selected, int errLn = -1)
+    {
+        for (size_t i = 0; i < codeAsLines.size(); i++)
+        {
+            if (i == codeAsLines.size() - 1) break;
+            if (std::find(selected.begin(), selected.end(), i) != selected.end())
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 1, 1));
+                //ImGui::PushStyleColor(ImGuiCol_FrameBg, col);
+                ImGui::TextWrapped("%i:\t\t%s", i + 1, codeAsLines[i].c_str());
+                ImGui::PopStyleColor(1);
+                //ImGui::NewLine();
+
+            }
+            else if (i == errLn)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+                //ImGui::PushStyleColor(ImGuiCol_FrameBg, col);
+                ImGui::TextWrapped("%i:\t\t%s", i + 1, codeAsLines[i].c_str());
+                ImGui::PopStyleColor(1);
+            }
+            else
+            {
+                ImGui::TextWrapped("%i:\t\t%s", i + 1, codeAsLines[i].c_str());
+            }
+        }
     }
 
 
@@ -769,6 +795,8 @@ struct Example:
         codeAsLines.clear();
         displayShaderCode.clear();
         shaderCode.clear();
+        program_one.errLog.clear();
+        program_two.errLog.clear();
         std::unordered_map<uint64_t, std::string> names;
         std::unordered_map<uint64_t, std::string> code;
         shaderCode = "#version 450 core\nin vec2 vUV;\nin float time;\nlayout (location = 0) out vec4 fragColour;";
@@ -2043,34 +2071,33 @@ struct Example:
                 std::vector<ed::NodeId> selected;
                 selected.resize(ed::GetSelectedObjectCount());
                 int nodeCount = ed::GetSelectedNodes(selected.data(), static_cast<int>(selected.size()));
-                if (selected.size() > 0)
+                int errLn = -1;
+                std::vector<int> selectedLines;
+
+                if (activeShader && !activeShader->errLog.empty())
                 {
-                    ed::NodeId id = selected[0];
-                    Node* n = FindNode(id);
-                    if (n && (n->lineNumber != -1)) displayCodeWithSelected(n->lineNumber);
-                    else displayCode(-1);
-                    //else { highlightLine(5); }
-                }
-                else if (activeShader && !activeShader->errLog.empty())
-                {
-                    //Error compiling shader: 0(111) : 
                     size_t pos = activeShader->errLog.find("0(");
                     size_t ePos = activeShader->errLog.find(") :");
-                    std::string errLn = "";
+                    std::string errL = "";
                     pos += 2;
                     for (auto& i = pos; i < ePos; i++)
                     {
-                        errLn += activeShader->errLog[i];
+                        errL += activeShader->errLog[i];
                     }
                     //std::cout << errLn << "\n";
                     size_t process = 0;
-                    int ln = std::stoi(errLn, &process, 10);
-                    displayCodeWithError(ln - 102);
+                    errLn = std::stoi(errL, &process, 10);
+                    errLn -= 102;
                 }
-                else
+                if (selected.size() > 0)
                 {
-                    displayCode(-1);
+                    for (auto& id : selected)
+                    {
+                        Node* n = FindNode(id);
+                        selectedLines.push_back(n->lineNumber);
+                    }
                 }
+                displayCode(selectedLines, errLn);
             }
 
 
@@ -2442,17 +2469,18 @@ drawList->AddRect(
                             {
                                 showLabel("+ Create Link", ImColor(32, 45, 32, 180));
                                 //custom link checking code to disallow multiple end pins)
-                                for (auto it = m_Links.begin(); it != m_Links.end(); it++)
-                                {
-                                    Link l = *it;
-                                    if (l.EndPinID == endPin->ID)
-                                    {
-                                        m_Links.erase(it);
-                                        break;
-                                    }
-                                }
+                                
                                 if (ed::AcceptNewItem(ImColor(128, 255, 128), 4.0f))
                                 {
+                                    for (auto it = m_Links.begin(); it != m_Links.end(); it++)
+                                    {
+                                        Link l = *it;
+                                        if (l.EndPinID == endPin->ID)
+                                        {
+                                            m_Links.erase(it);
+                                            break;
+                                        }
+                                    }
                                     m_Links.emplace_back(Link(GetNextId(), startPinId, endPinId));
                                     m_Links.back().Color = GetIconColor(startPin->Type);
                                 }

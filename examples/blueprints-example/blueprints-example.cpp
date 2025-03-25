@@ -707,7 +707,7 @@ struct Example:
             code += "float " + nodeVar + " = sin(" + inVars[0] + ");\n";
             break;
         case NodeType::Cos:
-            code += "float " + nodeVar + " = sin(" + inVars[0] + ");\n";
+            code += "float " + nodeVar + " = cos(" + inVars[0] + ");\n";
             break;
         case NodeType::Tan:
             code += "float " + nodeVar + " = tan(" + inVars[0] + ");\n";
@@ -762,7 +762,7 @@ struct Example:
                 ", " + inVars[4] + ", " + inVars[5] + ");\n";
                 break;
         case NodeType::Output:
-            code += nodeVar + " = vec4(" + inVars[1] + ");\n";
+            code += nodeVar + " = vec4(" + inVars[0] + ");\n";
             break;
         case NodeType::SimpleNoise:
             code += "float " + nodeVar + " = simpleNoise(vec2(" + inVars[0] + "), "
@@ -773,6 +773,10 @@ struct Example:
         if (node.Type == NodeType::UV)
         {
             node.lineNumber = 1;
+        }
+        else if (node.Type == NodeType::Time)
+        {
+            node.lineNumber = 2;
         }
         else if (node.Type == NodeType::FloatConstant || node.Type == NodeType::Time)
         {
@@ -1174,6 +1178,8 @@ struct Example:
         m_Nodes.back().Type = NodeType::Mix;
         m_Nodes.back().isShader = true;
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "alpha", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Float);
 
         BuildNode(&m_Nodes.back());
@@ -1309,7 +1315,8 @@ struct Example:
         m_Nodes.emplace_back(GetNextId(), "Add");
         m_Nodes.back().Type = NodeType::VectorAdd;
         m_Nodes.back().isShader = true;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
@@ -1321,7 +1328,8 @@ struct Example:
         m_Nodes.emplace_back(GetNextId(), "Subtract");
         m_Nodes.back().Type = NodeType::VectorSubtract;
         m_Nodes.back().isShader = true;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
@@ -1333,7 +1341,8 @@ struct Example:
         m_Nodes.emplace_back(GetNextId(), "Multiply");
         m_Nodes.back().Type = NodeType::VectorMultiply;
         m_Nodes.back().isShader = true;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
@@ -1345,7 +1354,8 @@ struct Example:
         m_Nodes.emplace_back(GetNextId(), "Divide");
         m_Nodes.back().Type = NodeType::VectorDivide;
         m_Nodes.back().isShader = true;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         BuildNode(&m_Nodes.back());
@@ -1357,7 +1367,7 @@ struct Example:
         m_Nodes.emplace_back(GetNextId(), "Absolute");
         m_Nodes.back().Type = NodeType::VectorAbs;
         m_Nodes.back().isShader = true;
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
 
         return &m_Nodes.back();
@@ -1371,7 +1381,7 @@ struct Example:
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "position", PinType::Vector4);
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "frequency", PinType::Float);
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "octaveCount", PinType::Float);
-        m_Nodes.back().Inputs.emplace_back(GetNextId(), "persostemce", PinType::Float);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "persistence", PinType::Float);
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "lacunarity", PinType::Float);
         m_Nodes.back().Inputs.emplace_back(GetNextId(), "seed", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "output", PinType::Float);
@@ -1401,7 +1411,7 @@ struct Example:
             m_Nodes.emplace_back(GetNextId(), "Output");
             m_Nodes.back().Type = NodeType::Output;
             m_Nodes.back().isShader = true;
-            m_Nodes.back().Inputs.emplace_back(GetNextId(), "Float Output", PinType::Float);
+            //m_Nodes.back().Inputs.emplace_back(GetNextId(), "Float Output", PinType::Float);
             m_Nodes.back().Inputs.emplace_back(GetNextId(), "Vector Output", PinType::Vector4);
             //m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::String);
 

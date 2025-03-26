@@ -333,7 +333,14 @@ struct Example:
         for (size_t i = 0; i < codeAsLines.size(); i++)
         {
             if (i == codeAsLines.size() - 1) break;
-            if (std::find(selected.begin(), selected.end(), i) != selected.end())
+            if (i == errLn)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+                //ImGui::PushStyleColor(ImGuiCol_FrameBg, col);
+                ImGui::TextWrapped("%i:\t\t%s", i + 1, codeAsLines[i].c_str());
+                ImGui::PopStyleColor(1);
+            }
+            else if (std::find(selected.begin(), selected.end(), i) != selected.end())
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 1, 1));
                 //ImGui::PushStyleColor(ImGuiCol_FrameBg, col);
@@ -341,13 +348,6 @@ struct Example:
                 ImGui::PopStyleColor(1);
                 //ImGui::NewLine();
 
-            }
-            else if (i == errLn)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
-                //ImGui::PushStyleColor(ImGuiCol_FrameBg, col);
-                ImGui::TextWrapped("%i:\t\t%s", i + 1, codeAsLines[i].c_str());
-                ImGui::PopStyleColor(1);
             }
             else
             {

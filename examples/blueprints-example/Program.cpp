@@ -65,11 +65,50 @@ namespace Render
 		return true;
 	}
 
+	bool Program::makeTarget(std::string& src)
+	{
+		id = glCreateProgram();
+		if (id == 0)
+		{
+			std::cout << "Failed to create new ID";
+			return false;
+		}
+		std::vector<char> vertString(vertexShaderSource.begin(), vertexShaderSource.end());
+		vertString.push_back('\0');
+		vertexID = compileShader(GL_VERTEX_SHADER, vertString);
+
+		std::vector<char> fragString(src.begin(), src.end());
+		fragString.push_back('\0');
+		fragmentID = compileShader(GL_FRAGMENT_SHADER, fragString);
+
+		if (fragmentID == 0 || vertexID == 0)
+		{
+			std::cout << "Failed to create shaders\n";
+			return false;
+		}
+
+		glAttachShader(id, vertexID);
+		glAttachShader(id, fragmentID);
+		glLinkProgram(id);
+		glDeleteShader(vertexID);
+		glDeleteShader(fragmentID);
+
+
+
+		if (!compileStatus(id))
+		{
+			std::cout << "Failed to link program\n";
+			return false;
+		}
+		return true;
+	}
+
 	bool Program::makeProgramFromString(const std::string& src)
 	{
 		if (vertexID) { glDetachShader(id, vertexID); vertexID = 0; }
 		if (fragmentID) { glDetachShader(id, fragmentID); fragmentID = 0; }
-		glDeleteShader(id);
+		if (id)
+			glDeleteShader(id);
 		id = 0;
 		id = glCreateProgram();
 		if (id == 0)

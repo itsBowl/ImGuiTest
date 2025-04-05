@@ -6,7 +6,7 @@
 #include "Nodes.h"
 
 
-SDL_Window* makeSDLWindow(int width = 640, int height = 480)
+SDL_Window* makeSDLWindow(SDL_GLContext* ctx, int width = 640, int height = 480)
 {
     std::cout << "Loading SDL\n";
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -15,7 +15,7 @@ SDL_Window* makeSDLWindow(int width = 640, int height = 480)
     }
 
     auto window = SDL_CreateWindow("Output Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+        width, height, SDL_WINDOW_OPENGL);
     //SDL_SetWindowAlwaysOnTop(window, SDL_TRUE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
@@ -66,6 +66,7 @@ std::string getTooltip(NodeType t)
     case NodeType::Fract:
         return "Computes the fractional part of the input value";
         break;
+    case NodeType::VectorModulo:
     case NodeType::Mod:
         return "Calculates a modulo b (a % b)";
         break;

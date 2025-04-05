@@ -56,13 +56,14 @@ namespace Render
 		}
 
 		GLuint getID() { return id; }
-	private:
-		GLuint id = 0;
+	
+		bool makeTarget(std::string&);
 		bool makeProgramFromString(const std::string&);
 		void makeProgram(std::string);
 		GLuint compileShader(GLenum, const std::vector<char>&);
 		bool compileStatus(GLuint);
-
+	private:
+		GLuint id = 0;
 		GLuint vertexID = 0;
 		GLuint fragmentID = 0;
 		

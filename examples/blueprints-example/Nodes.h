@@ -23,11 +23,8 @@ enum class PinKind
 enum class NodeType
 {
     //pre-existing
-    Blueprint,
     Simple,
-    Tree,
     Comment,
-    Houdini,
     //float types
     FloatConstant,
     FloatAdd,
@@ -78,5 +75,6 @@ enum class NodeType
     Output,
     VectorAbs,
     SimpleNoise,
-    Time
+    Time,
+    VectorModulo
 };

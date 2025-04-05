@@ -102,7 +102,7 @@ struct Node
     std::string SavedState;
 
     Node(int id, const char* name, ImColor color = ImColor(255, 255, 255)):
-        ID(id), Name(name), Color(color), Type(NodeType::Blueprint), Size(0, 0)
+        ID(id), Name(name), Color(color), Type(NodeType::Simple), Size(0, 0)
     {
     }
 };
@@ -195,7 +195,7 @@ struct Example:
                 entry.second -= deltaTime;
         }
     }
-
+    // my code
     Node* findConnected(ed::PinId pin)
     {
         for (auto& l : m_Links)
@@ -380,41 +380,6 @@ struct Example:
         
     }
 
-    //Very WIP needs significant work
-    void copyNodes(json& j)
-    {
-        std::cout << "Copied Nodes: \n";
-        int selection = ed::GetSelectedObjectCount();
-        //testing
-
-        //selection = m_Nodes.size();
-        if (selection <= 0) return;
-
-        std::vector<ed::NodeId> selected(selection);
-        ed::GetSelectedNodes(selected.data(), selection);        
-        
-        std::unordered_map<uint64_t, uint64_t> indexMap;
-        
-        copiedNodes.clear();
-        copiedLinks.clear();
-        for (size_t i = 0; i < selected.size(); i++)
-        {
-            uint64_t id = selected[i].Get();
-            for (auto& n : m_Nodes)
-            {
-                if (n.ID.Get() == id)
-                {
-                    indexMap[id] = copiedNodes.size();
-                    n.index = indexMap[id];
-                    copiedNodes.push_back(n);
-                }
-            }
-        }
-
-        serialiseLinks(indexMap);
-        std::cout << "End of copy operation\n";
-    }
-
     void serialiseNodeTree()
     {
         copiedNodes.clear();
@@ -452,7 +417,6 @@ struct Example:
         }
         std::cout << "End of serialise operation\n";
     }
-
     void serialiseLinks(std::unordered_map<uint64_t, uint64_t>& indexMap)
     {
         for (const auto& l : m_Links)
@@ -491,7 +455,40 @@ struct Example:
             }
         }
     }
+    //Very WIP needs significant work
+    void copyNodes(json& j)
+    {
+        std::cout << "Copied Nodes: \n";
+        int selection = ed::GetSelectedObjectCount();
+        //testing
 
+        //selection = m_Nodes.size();
+        if (selection <= 0) return;
+
+        std::vector<ed::NodeId> selected(selection);
+        ed::GetSelectedNodes(selected.data(), selection);
+
+        std::unordered_map<uint64_t, uint64_t> indexMap;
+
+        copiedNodes.clear();
+        copiedLinks.clear();
+        for (size_t i = 0; i < selected.size(); i++)
+        {
+            uint64_t id = selected[i].Get();
+            for (auto& n : m_Nodes)
+            {
+                if (n.ID.Get() == id)
+                {
+                    indexMap[id] = copiedNodes.size();
+                    n.index = indexMap[id];
+                    copiedNodes.push_back(n);
+                }
+            }
+        }
+
+        serialiseLinks(indexMap);
+        std::cout << "End of copy operation\n";
+    }
     void pasteNodes()
     {
         std::vector<ed::NodeId> newNodes;
@@ -744,6 +741,16 @@ struct Example:
         case NodeType::Normalize:
             code += "vec4 " + nodeVar + " = normalize(" + inVars[0] + ");\n";
             break;
+        case NodeType::VectorMin:
+            code += "vec4 " + nodeVar + " = min(" + inVars[0] + ", " + inVars[1] + ");\n";
+            break;
+        case NodeType::VectorMax:
+            code += "vec4 " + nodeVar + " = max(" + inVars[0] + ", " + inVars[1] + ");\n";
+            break;
+        case NodeType::VectorModulo:
+            code += "vec4 " + nodeVar + " = mod(" + inVars[0] + ", " + inVars[1] + ");\n";
+            break;
+            
 
         //Vector Utilities
         case NodeType::Combine:
@@ -838,7 +845,7 @@ struct Example:
         }
         codeAsLines.push_back(displayShaderCode.substr(prev));
     }
-
+    //end of my code
     Node* FindNode(ed::NodeId id)
     {
         for (auto& node : m_Nodes)
@@ -1372,6 +1379,19 @@ struct Example:
 
         return &m_Nodes.back();
     }
+    Node* spawnVec4ModNode()
+    {
+        m_Nodes.emplace_back(GetNextId(), "Modulus");
+        m_Nodes.back().Type = NodeType::VectorModulo;
+        m_Nodes.back().isShader = true;
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "a", PinType::Vector4);
+        m_Nodes.back().Inputs.emplace_back(GetNextId(), "b", PinType::Vector4);
+        m_Nodes.back().Outputs.emplace_back(GetNextId(), "", PinType::Vector4);
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
     //fnSig vec2 position, int frequency, int octaveCount, float persistence, float lacunarity, uint seed
     Node* spawnNoiseNode()
     {
@@ -1437,6 +1457,27 @@ struct Example:
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "x", PinType::Float);
         m_Nodes.back().Outputs.emplace_back(GetNextId(), "y", PinType::Float);
         m_Nodes.back().lineNumber = 1;
+
+        BuildNode(&m_Nodes.back());
+
+        return &m_Nodes.back();
+    }
+
+    Node* spawnNode(std::string name, NodeType type,
+        std::vector<std::pair<std::string, PinType>> inputs,
+        std::vector<std::pair<std::string, PinType>> outputs)
+    {
+        m_Nodes.emplace_back(GetNextId(), name.c_str());
+        m_Nodes.back().Type = NodeType::SimpleNoise;
+        m_Nodes.back().isShader = true;
+        for (auto& i : inputs)
+        {
+            m_Nodes.back().Inputs.emplace_back(GetNextId(), i.first.c_str(), i.second);
+        }
+        for (auto& i : outputs)
+        {
+            m_Nodes.back().Outputs.emplace_back(GetNextId(), i.first.c_str(), i.second);
+        }
 
         BuildNode(&m_Nodes.back());
 
@@ -1509,6 +1550,8 @@ struct Example:
             return spawnLengthNode();
         case NodeType::Normalize:
             return spawnNormaliseNode();
+        case NodeType::VectorModulo:
+            return spawnVec4ModNode();
 
             //Vector Utilities
         case NodeType::Combine:
@@ -1541,14 +1584,17 @@ struct Example:
     void OnStart() override
     {
 
-        sdl_window = makeSDLWindow(sdl_width, sdl_height);
+       
+        sdl_window = makeSDLWindow(&windowCtx, sdl_width, sdl_height);
+        
+        
         if (Render::init() != 0)
         {
             std::cout << "Failed to init window renderer\n";
             __debugbreak();
         }
         
-
+        targetProgram.makeTarget(targetShader);
         ed::Config config;
 
         config.SettingsFile = "Blueprints.json";
@@ -1780,13 +1826,42 @@ struct Example:
                 }
             }
         }
+        if (ImGui::Button("Show target"))
+        {
+            program_one.isActive = false;
+            program_one.isActive = false;
+            targetProgram.isActive = true;
+        }
+        ImGui::Spring();
+        if (ImGui::Button("Copy Code"))
+        {
+            OpenClipboard(0);
+            EmptyClipboard();
+            HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, shaderCode.size());
+            if (hg)
+            {
+                memcpy(GlobalLock(hg), shaderCode.c_str(), shaderCode.size());
+                GlobalUnlock(hg);
+                SetClipboardData(CF_TEXT, hg);
+                CloseClipboard();
+                GlobalFree(hg);
 
+            }
+            else
+            {
+                CloseClipboard();
+            }
+            
+        }
+        ImGui::EndHorizontal();
+        ImGui::NewLine();
         if (ImGui::Button("Zoom to Content"))
             ed::NavigateToContent();
-        ImGui::Spring();
+        ImGui::SameLine();
+        //ImGui::Spring();
         if (ImGui::Button("Edit Style"))
             showStyleEditor = true;
-        ImGui::EndHorizontal();
+        ImGui::SameLine();
         ImGui::Checkbox("Show Ordinals", &m_ShowOrdinals);
 
         //#TODO: Save/Load
@@ -2103,6 +2178,7 @@ struct Example:
                 {
                     for (auto& id : selected)
                     {
+                        if (id.Get() == 0) break;
                         Node* n = FindNode(id);
                         selectedLines.push_back(n->lineNumber);
                     }
@@ -2168,7 +2244,7 @@ struct Example:
 
             for (auto& node : m_Nodes)
             {
-                if ((node.Type != NodeType::Blueprint && node.Type != NodeType::Simple) && !node.isShader)
+                if ((node.Type != NodeType::Simple) && !node.isShader)
                     continue;
 
                 const auto isSimple = node.Type == NodeType::Simple;
@@ -2470,6 +2546,7 @@ drawList->AddRect(
                                 showLabel("x Cannot connect to self", ImColor(45, 32, 32, 180));
                                 ed::RejectNewItem(ImColor(255, 0, 0), 1.0f);
                             }
+                            //commented out to permit links between different types of pins
                             //else if (endPin->Type != startPin->Type)
                             //{
                             //    showLabel("x Incompatible Pin Type", ImColor(45, 32, 32, 180));
@@ -2584,7 +2661,7 @@ drawList->AddRect(
                     node->userDefinedName = buffer;
                 }
                 ImGui::Text("ID: %p", node->ID.AsPointer());
-                ImGui::Text("Type: %s", node->Type == NodeType::Blueprint ? "Blueprint" : (node->Type == NodeType::Tree ? "Tree" : "Comment"));
+                ImGui::Text("Type: %s", "Comment");
                 ImGui::Text("Inputs: %d", (int)node->Inputs.size());
                 ImGui::Text("Outputs: %d", (int)node->Outputs.size());
             }
@@ -2715,6 +2792,14 @@ drawList->AddRect(
                     node = spawnLengthNode();
                 if (ImGui::MenuItem("Normalise"))
                     node = spawnNormaliseNode();
+                if (ImGui::MenuItem("Max"))
+                    node = spawnVectorMaxNode();
+                if (ImGui::MenuItem("Min"))
+                    node = spawnVectorMinNode();
+                if (ImGui::MenuItem("Absolute"))
+                    node = spawnVectorAbsNode();
+                if (ImGui::MenuItem("Modulo"))
+                    node = spawnVec4ModNode();
                 if (ImGui::MenuItem("Combine"))
                     node = spawnCombineNode();
                 if (ImGui::MenuItem("Split"))
@@ -2861,15 +2946,20 @@ drawList->AddRect(
             program_two.setFloat("i_time", time);
             Render::testRender(&program_two);
         }
+        else if (targetProgram.isActive)
+        {
+            targetProgram.use();
+            targetProgram.setFloat("i_time", time);
+            Render::testRender(&targetProgram);
+        }
         else
         {
             Render::testRender();
         }
         
-
         SDL_GL_SwapWindow(sdl_window);
-        //ImGui::ShowTestWindow();
-        //ImGui::ShowMetricsWindow();
+
+     
     }
 
     int                  m_NextId = 1;
@@ -2884,13 +2974,15 @@ drawList->AddRect(
     bool                 m_ShowOrdinals = false;
 
     //my stuff here for rendering and extending the codebase to be a better shader editor
-    SDL_Window*          sdl_window;
-    int                  sdl_width = 640;
-    int                  sdl_height = 480;
-    Render::Program      program_one;
-    Render::Program      program_two;
-    std::vector<std::string> codeAsLines;
-    int currentLineNumber = 5;
+    SDL_Window*                 sdl_window;
+    SDL_GLContext               windowCtx;
+    int                         sdl_width = 640;
+    int                         sdl_height = 480;
+    Render::Program             program_one;
+    Render::Program             program_two;
+    Render::Program             targetProgram;
+    std::vector<std::string>    codeAsLines;
+    int currentLineNumber =     5;
 
     std::vector<Node> copiedNodes;
     std::vector<Link> copiedLinks;
